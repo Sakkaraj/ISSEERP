@@ -1,18 +1,22 @@
+/* This is skeleton of website */
 import React from "react";
 import './index.css';
 import { Link, Route, Routes } from "react-router-dom";
 import Finance from './finance';
 import Home from './Home';
-import ThemeToggle from "./components/ThemeToggle";
+import SettingsDropdown from "./components/SettingsDropdown";
+import Dashboard from './dashboard'
 
 function App() {
     return (
-        <div className="min-h-screen bg-background text-text transition-colors duration-300">
-            <header>
+        <div className="min-h-screen bg-background text-text transition-colors duration-300 flex flex-col">
+            <header className="relative">
                 <h1 className='text-center text-3xl font-bold text-primary mt-10'>
                     BoonSunClon
                 </h1>
-                <ThemeToggle />
+                <div className="absolute top-4 right-4">
+                    <SettingsDropdown />
+                </div>
             </header>
             <nav>
                 <ul>
@@ -22,11 +26,15 @@ function App() {
                     <li>
                         <Link to="/finance">Finance</Link>
                     </li>
+                    <li>
+                        <Link to="/dashboard">Dashboard</Link>
+                    </li>
                 </ul>
             </nav>
             <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/finance" element={<Finance />} />
+                <Route path="/dashboard" element={<Dashboard />} />
             </Routes>
         </div>
     )

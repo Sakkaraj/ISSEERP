@@ -18,7 +18,7 @@
     body {
         background-color: var(--color-bg);
         color: var(--color-text);
-        transition: background-color 0.3s, color 0.3s;
+        transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         margin: 0; /* Ensure no default margins */
         min-height: 100vh;
     }
@@ -34,5 +34,9 @@
 @layer components {
     * {
         font-family: sans-serif;
+    }
+
+    .cntr {
+        @apply text-center;
     }
 }
