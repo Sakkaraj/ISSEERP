@@ -31,12 +31,50 @@
     --color-secondary: var(--color-secondary);
 }
 
+@media screen and (minimum-width: 600px){
+    .varStyle {
+        @apply flex flex-col justify-center items-center;
+    }
+}
+
 @layer components {
     * {
         font-family: sans-serif;
     }
 
+    nav ul {
+        @apply flex flex-row gap-10 list-none p-0 m-0 justify-center mt-5 mb-5;
+    }
+
     .cntr {
         @apply text-center;
+    }
+
+    .fieldBorder {
+        @apply border rounded-xl border-primary;
+    }
+
+    .pad {
+        @apply p-5
+    }
+
+    .input {
+        @apply border rounded-xl border-primary p-2
+    }
+
+    .sectionWraper {
+        @apply border rounded-xl border-primary p-5 w-[80%] mx-auto
+    }
+
+    .colorTextBox {
+        @apply box-border border rounded border-primary p-0.5 mt-2.5 ml-1;
+    }
+
+    .colorTextArea {
+        @apply box-border border rounded border-primary p-0.5 mt-2.5 ml-1 w-full;
+    }
+
+    .colorRadio {
+        @apply ml-1 mr-1;
     }
 }

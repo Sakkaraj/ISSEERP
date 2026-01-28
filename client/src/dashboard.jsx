@@ -4,8 +4,10 @@ function Dashboard() {
     return (
         <>
             <main>
-                <section>
-                    <h1>Dashboard</h1>
+                <section className='sectionWraper'>
+                    <section>
+                        
+                    </section>
                 </section>
             </main>
         </>

@@ -6,6 +6,7 @@ import Finance from './finance';
 import Home from './Home';
 import SettingsDropdown from "./components/SettingsDropdown";
 import Dashboard from './dashboard'
+import Construct from "./construct";
 
 function App() {
     return (
@@ -29,12 +30,16 @@ function App() {
                     <li>
                         <Link to="/dashboard">Dashboard</Link>
                     </li>
+                    <li>
+                        <Link to="/construct">Construct</Link>
+                    </li>
                 </ul>
             </nav>
             <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/finance" element={<Finance />} />
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/construct" element={<Construct />} />
             </Routes>
         </div>
     )

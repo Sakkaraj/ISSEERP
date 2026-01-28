@@ -6,7 +6,7 @@ function Finance() {
     return (
         <>
             <main>
-                <p>Welcome to the Finance page.</p>
+                <p className="pad">Welcome to the Finance page.</p>
             </main>
         </>
     )
