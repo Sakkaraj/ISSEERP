@@ -5,8 +5,9 @@ import { Link, Route, Routes } from "react-router-dom";
 import Finance from './finance';
 import Home from './Home';
 import SettingsDropdown from "./components/SettingsDropdown";
-import Dashboard from './dashboard'
+import Dashboard from './dashboard';
 import Construct from "./construct";
+import OrderDetail from "./orderdetail";
 
 function App() {
     return (
@@ -33,6 +34,9 @@ function App() {
                     <li>
                         <Link to="/construct">Construct</Link>
                     </li>
+                    <li>
+                        <Link to="/orderdetail">Order Detail</Link>
+                    </li>
                 </ul>
             </nav>
             <Routes>
@@ -40,6 +44,7 @@ function App() {
                 <Route path="/finance" element={<Finance />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/construct" element={<Construct />} />
+                <Route path="/orderdetail" element={<OrderDetail />} />
             </Routes>
         </div>
     )
