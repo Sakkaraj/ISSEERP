@@ -1,18 +1,51 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
-	"encoding/json"
+	"os"
+	"server/db"
+	"server/handlers"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	http.HandleFunc("/api/message", func(w http.ResponseWriter, r *http.Request){
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"message": "Hello from Go!"})
-	})
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	db.Connect()
+	router := setupRouter()
 
-	fmt.Println("Server is running on port 8080")
-	http.ListenAndServe(":8080", nil)
+	port := os.Getenv("PORT")
+	log.Println("Server is running on :" + port)
+	http.ListenAndServe(":"+port, router)
+}
+
+func setupRouter() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/login", handlers.LoginHandler)
+
+	// Serve React strict production build
+	fs := http.FileServer(http.Dir("../client/dist"))
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If the file exists, serve it
+		if _, err := os.Stat("../client/dist" + r.URL.Path); err == nil {
+			fs.ServeHTTP(w, r)
+			return
+		}
+		// Otherwise, fall back to index.html for React Router
+		http.ServeFile(w, r, "../client/dist/index.html")
+	}))
+
+	return mux
+}
+
+func apiHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/api/login":
+		handlers.LoginHandler(w, r)
+	default:
+		http.Error(w, "Not Found", http.StatusNotFound)
+	}
 }
