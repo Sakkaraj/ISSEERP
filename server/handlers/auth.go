@@ -46,7 +46,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(LoginResponse{Success: false, Message: "Invalid username or password"})
 			return
 		}
-		http.Error(w, "Database error", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(LoginResponse{Success: false, Message: "Internal server error: check database connection"})
 		return
 	}
 

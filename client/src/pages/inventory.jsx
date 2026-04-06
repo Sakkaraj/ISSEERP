@@ -1,0 +1,277 @@
+import React, { useState, useEffect, useCallback } from 'react';
+
+function useFetch(url) {
+    const [data, setData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            setData(await res.json());
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [url]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+    return { data, loading, error, refetch: fetchData };
+}
+
+export default function Inventory() {
+    const { data: materials, loading: matLoading, error: matError, refetch: refetchMats } = useFetch('/api/inventory/materials');
+    const { data: reservations, loading: resLoading, error: resError, refetch: refetchRes } = useFetch('/api/inventory/reservations');
+
+    const [showModal, setShowModal] = useState(false);
+    const [activeTab, setActiveTab] = useState('stock');
+    const [form, setForm] = useState({ materialId: '', quantity: '', orderId: '', purpose: '', reservedBy: '' });
+    const [formError, setFormError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [successMsg, setSuccessMsg] = useState('');
+
+    const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+    const handleReserve = async (e) => {
+        e.preventDefault();
+        setFormError('');
+        const qty = parseInt(form.quantity, 10);
+        const mat = materials.find(m => m.id === parseInt(form.materialId, 10));
+
+        if (!mat) { setFormError('Please select a material.'); return; }
+        if (!qty || qty <= 0) { setFormError('Enter a valid quantity.'); return; }
+        if (!form.orderId.trim()) { setFormError('Order ID is required.'); return; }
+        if (!form.reservedBy.trim()) { setFormError('Reserved By is required.'); return; }
+
+        setSubmitting(true);
+        try {
+            const res = await fetch('/api/inventory/reservations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    material_id: mat.id,
+                    order_id: form.orderId.toUpperCase(),
+                    reserved_qty: qty,
+                    purpose: form.purpose,
+                    reserved_by: form.reservedBy,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to reserve');
+            setSuccessMsg(`Reserved ${qty} ${mat.unit} of ${mat.material_name} for ${form.orderId.toUpperCase()}.`);
+            setForm({ materialId: '', quantity: '', orderId: '', purpose: '', reservedBy: '' });
+            await Promise.all([refetchMats(), refetchRes()]);
+            setTimeout(() => { setShowModal(false); setSuccessMsg(''); }, 2000);
+        } catch (err) {
+            setFormError(err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const getBarColor = (mat) => {
+        const pct = mat.total_qty > 0 ? (mat.reserved_qty / mat.total_qty) * 100 : 0;
+        if (pct >= 80) return 'bg-red-500';
+        if (pct >= 50) return 'bg-yellow-500';
+        return 'bg-green-500';
+    };
+
+    const totalReserved = materials.reduce((a, m) => a + m.reserved_qty, 0);
+    const activeRes = reservations.filter(r => r.status === 'Active').length;
+    const lowStock = materials.filter(m => (m.total_qty - m.reserved_qty) < 20).length;
+    const loading = matLoading || resLoading;
+
+    return (
+        <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-text tracking-tight">Inventory & Material Reservation</h1>
+                    <p className="text-text/60 mt-1">Monitor raw material stock and reserve materials for bespoke production orders.</p>
+                </div>
+                <button id="btn-reserve-material" onClick={() => setShowModal(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Reserve Material
+                </button>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                {[
+                    { label: 'Total Materials', value: materials.length, color: 'text-primary', border: 'border-primary/20' },
+                    { label: 'Total Reserved', value: totalReserved, color: 'text-yellow-400', border: 'border-yellow-400/20' },
+                    { label: 'Active Reservations', value: activeRes, color: 'text-blue-400', border: 'border-blue-400/20' },
+                    { label: 'Low Stock Alerts', value: lowStock, color: 'text-red-400', border: 'border-red-400/20' },
+                ].map((c, i) => (
+                    <div key={i} className={`bg-white/5 border ${c.border} rounded-2xl p-5`}>
+                        <p className="text-text/50 text-sm font-medium">{c.label}</p>
+                        <p className={`text-3xl font-extrabold mt-1 ${c.color}`}>{c.value}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-2 mb-6">
+                {[['stock', '📦 Material Stock'], ['reservations', '🔒 Reservations']].map(([tab, label]) => (
+                    <button key={tab} onClick={() => setActiveTab(tab)}
+                        className={`px-5 py-2 rounded-lg font-semibold text-sm transition-all ${activeTab === tab ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-text/50 hover:text-text hover:bg-white/5'}`}>
+                        {label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Content */}
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl overflow-hidden">
+                {loading ? (
+                    <div className="p-16 text-center text-text/40 animate-pulse">Loading data from database…</div>
+                ) : (matError || resError) ? (
+                    <div className="p-10 text-center text-red-400 text-sm">{matError || resError}</div>
+                ) : activeTab === 'stock' ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-black/20 border-b border-white/10 text-xs font-semibold text-text/60 uppercase tracking-wider">
+                                    <th className="p-4 pl-6">ID</th>
+                                    <th className="p-4">Material Name</th>
+                                    <th className="p-4">Location</th>
+                                    <th className="p-4 text-center">Total</th>
+                                    <th className="p-4 text-center">Reserved</th>
+                                    <th className="p-4 text-center">Available</th>
+                                    <th className="p-4 pr-6">Utilization</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10">
+                                {materials.map(mat => {
+                                    const available = mat.total_qty - mat.reserved_qty;
+                                    const pct = mat.total_qty > 0 ? Math.round((mat.reserved_qty / mat.total_qty) * 100) : 0;
+                                    return (
+                                        <tr key={mat.id} className="hover:bg-white/5 transition-colors">
+                                            <td className="p-4 pl-6 font-mono text-xs text-text/50">#{mat.id}</td>
+                                            <td className="p-4 font-semibold text-text">{mat.material_name}</td>
+                                            <td className="p-4 text-sm text-text/70">{mat.location}</td>
+                                            <td className="p-4 text-center text-text/80">{mat.total_qty} <span className="text-xs text-text/40">{mat.unit}</span></td>
+                                            <td className="p-4 text-center text-yellow-400 font-medium">{mat.reserved_qty}</td>
+                                            <td className={`p-4 text-center font-bold ${available < 20 ? 'text-red-400' : 'text-green-400'}`}>{available}</td>
+                                            <td className="p-4 pr-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-1 bg-white/10 rounded-full h-2">
+                                                        <div className={`h-2 rounded-full transition-all ${getBarColor(mat)}`} style={{ width: `${pct}%` }} />
+                                                    </div>
+                                                    <span className="text-xs text-text/50 w-8 text-right">{pct}%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-black/20 border-b border-white/10 text-xs font-semibold text-text/60 uppercase tracking-wider">
+                                    <th className="p-4 pl-6">Res. #</th>
+                                    <th className="p-4">Material</th>
+                                    <th className="p-4 text-center">Qty</th>
+                                    <th className="p-4">Order ID</th>
+                                    <th className="p-4">Purpose</th>
+                                    <th className="p-4">Reserved By</th>
+                                    <th className="p-4">Date</th>
+                                    <th className="p-4 pr-6 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10">
+                                {reservations.map(res => (
+                                    <tr key={res.id} className="hover:bg-white/5 transition-colors">
+                                        <td className="p-4 pl-6 font-mono text-xs text-primary">#{res.id}</td>
+                                        <td className="p-4 text-text font-medium">{res.material_name}</td>
+                                        <td className="p-4 text-center text-text/80">{res.reserved_qty}</td>
+                                        <td className="p-4 font-mono text-xs text-text/70">{res.order_id}</td>
+                                        <td className="p-4 text-sm text-text/70">{res.purpose || '—'}</td>
+                                        <td className="p-4 text-sm text-text/80">{res.reserved_by}</td>
+                                        <td className="p-4 text-sm text-text/60">{new Date(res.reserved_at).toLocaleDateString()}</td>
+                                        <td className="p-4 pr-6 text-center">
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${res.status === 'Active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-white/5 text-text/40 border-white/10'}`}>
+                                                {res.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {reservations.length === 0 && (
+                                    <tr><td colSpan={8} className="p-12 text-center text-text/40">No reservations yet.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Reserve Modal */}
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)}>
+                    <div className="bg-[hsl(220,15%,12%)] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-8 relative" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-text/40 hover:text-text transition-colors">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                        <h2 className="text-xl font-bold text-text mb-1">Reserve Material</h2>
+                        <p className="text-text/50 text-sm mb-6">Allocate materials to a specific bespoke production order.</p>
+
+                        {successMsg ? (
+                            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-green-400 font-medium text-sm text-center">{successMsg}</div>
+                        ) : (
+                            <form onSubmit={handleReserve} className="space-y-4">
+                                {formError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3">{formError}</p>}
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Material *</label>
+                                    <select id="inv-material" name="materialId" value={form.materialId} onChange={handleFormChange}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                        <option value="">Select material…</option>
+                                        {materials.map(m => (
+                                            <option key={m.id} value={m.id}>
+                                                {m.material_name} ({m.total_qty - m.reserved_qty} {m.unit} available)
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm font-medium text-text/70 mb-1 block">Quantity *</label>
+                                        <input id="inv-quantity" type="number" name="quantity" value={form.quantity} onChange={handleFormChange} min="1" placeholder="e.g. 10"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-text/70 mb-1 block">Order ID *</label>
+                                        <input id="inv-order-id" type="text" name="orderId" value={form.orderId} onChange={handleFormChange} placeholder="e.g. ORD-1010"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Purpose / Notes</label>
+                                    <input id="inv-purpose" type="text" name="purpose" value={form.purpose} onChange={handleFormChange} placeholder="e.g. Bespoke dining table legs"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Reserved By *</label>
+                                    <input id="inv-reserved-by" type="text" name="reservedBy" value={form.reservedBy} onChange={handleFormChange} placeholder="Staff name"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                                <button id="inv-submit" type="submit" disabled={submitting}
+                                    className="w-full bg-primary text-white font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+                                    {submitting ? 'Reserving…' : 'Confirm Reservation'}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

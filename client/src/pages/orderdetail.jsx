@@ -1,17 +1,362 @@
-function OrderDetail() {
-    return (
-        <>
-            <main>
-                <section className="sectionWraper">
-                    <article>
-                        <section>
-                            <h1 className='cntr text-3xl font-bold mb-1'>Order Detail</h1>
-                        </section>
-                    </article>
-                </section>
-            </main>
-        </>
-    )
-}
+import React, { useState, useEffect, useCallback } from 'react';
 
-export default OrderDetail;
+const ITEMS_PER_PAGE = 5;
+
+const STATUS_STYLES = {
+    'Completed':   'bg-green-500/10 text-green-400 border-green-500/20',
+    'In Progress': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    'Pending':     'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+    'Cancelled':   'bg-red-500/10 text-red-400 border-red-500/20',
+};
+
+const TYPE_STYLES = {
+    'OEM':     'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    'ODM':     'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+    'Bespoke': 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+};
+
+const TYPE_DESC = {
+    'OEM': 'Original Equipment Manufacturer — Produced under the client\'s brand.',
+    'ODM': 'Original Design Manufacturer — BoonSunClon\'s own design for client.',
+    'Bespoke': 'Custom-made order tailored to the specific client\'s requirements.',
+};
+
+export default function OrderDetail() {
+    const [orders, setOrders] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [selectedOrder, setSelectedOrder] = useState(null);
+
+    // New Order Modal state
+    const [showModal, setShowModal] = useState(false);
+    const [form, setForm] = useState({ customerName: '', orderType: 'OEM', totalAmount: '', itemCount: '1' });
+    const [formError, setFormError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [successMsg, setSuccessMsg] = useState('');
+
+    const fetchOrders = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const res = await fetch('/api/orders');
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            setOrders(await res.json());
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+    const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        setFormError('');
+        if (!form.customerName.trim()) { setFormError('Customer name is required.'); return; }
+        const amt = parseFloat(form.totalAmount);
+        if (isNaN(amt) || amt < 0) { setFormError('Enter a valid total amount.'); return; }
+
+        setSubmitting(true);
+        try {
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customer_name: form.customerName,
+                    order_type: form.orderType,
+                    total_amount: amt,
+                    item_count: parseInt(form.itemCount, 10) || 1,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to create order');
+            setSuccessMsg(`Order #${data.id} created successfully.`);
+            setForm({ customerName: '', orderType: 'OEM', totalAmount: '', itemCount: '1' });
+            await fetchOrders();
+            setTimeout(() => { setShowModal(false); setSuccessMsg(''); }, 2000);
+        } catch (err) {
+            setFormError(err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Filtering + pagination
+    const filtered = orders.filter(o =>
+        o.customer_name.toLowerCase().includes(search.toLowerCase()) ||
+        String(o.id).includes(search)
+    );
+    const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+    const safePage = Math.min(page, totalPages);
+    const paginated = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+
+    const handleSearch = (e) => { setSearch(e.target.value); setPage(1); };
+
+    return (
+        <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-text tracking-tight">Order Management</h1>
+                    <p className="text-text/60 mt-1">Review and manage all OEM, ODM, and Bespoke furniture orders.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center bg-black/20 rounded-lg p-1 border border-white/5">
+                        <input type="text" placeholder="Search orders…" value={search} onChange={handleSearch}
+                            className="bg-transparent border-none text-sm px-4 py-2 text-text placeholder:text-text/40 focus:outline-none w-48" />
+                        <span className="px-3 text-text/40">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </span>
+                    </div>
+                    <button id="btn-new-order" onClick={() => setShowModal(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        New Order
+                    </button>
+                </div>
+            </div>
+
+            {/* Table Card */}
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl overflow-hidden">
+                {loading ? (
+                    <div className="p-16 text-center text-text/40 animate-pulse">Loading orders from database…</div>
+                ) : error ? (
+                    <div className="p-10 text-center text-red-400 text-sm">{error}</div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-black/20 border-b border-white/10 text-xs font-semibold text-text/60 uppercase tracking-wider">
+                                    <th className="p-4 pl-6">Order ID</th>
+                                    <th className="p-4">Customer</th>
+                                    <th className="p-4">Type</th>
+                                    <th className="p-4">Date</th>
+                                    <th className="p-4 text-center">Items</th>
+                                    <th className="p-4 text-right">Total Amount</th>
+                                    <th className="p-4 pr-6 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10">
+                                {paginated.map(order => (
+                                    <tr key={order.id}
+                                        onClick={() => setSelectedOrder(order)}
+                                        className="hover:bg-white/5 transition-colors group cursor-pointer">
+                                        <td className="p-4 pl-6 font-mono text-sm font-medium text-text/80 group-hover:text-primary transition-colors">
+                                            #{order.id}
+                                        </td>
+                                        <td className="p-4 font-semibold text-text">{order.customer_name}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${TYPE_STYLES[order.order_type] || 'bg-white/5 text-text/40 border-white/10'}`}>
+                                                {order.order_type}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-text/70 text-sm">{new Date(order.order_date).toLocaleDateString()}</td>
+                                        <td className="p-4 text-center font-medium text-text/90">{order.item_count}</td>
+                                        <td className="p-4 text-right font-bold text-text">${Number(order.total_amount).toFixed(2)}</td>
+                                        <td className="p-4 pr-6">
+                                            <div className="flex justify-center">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${STATUS_STYLES[order.status] || 'bg-white/5 text-text/40 border-white/10'}`}>
+                                                    {order.status}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {paginated.length === 0 && (
+                                    <tr><td colSpan={7} className="p-12 text-center text-text/40">No orders found.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {/* Pagination */}
+                <div className="p-4 border-t border-white/10 flex items-center justify-between text-sm text-text/60 bg-black/10">
+                    <span>
+                        Showing <b className="text-text">{filtered.length === 0 ? 0 : (safePage - 1) * ITEMS_PER_PAGE + 1}</b>–
+                        <b className="text-text">{Math.min(safePage * ITEMS_PER_PAGE, filtered.length)}</b> of{' '}
+                        <b className="text-text">{filtered.length}</b> orders
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={safePage === 1}
+                            className="px-3 py-1 border border-white/10 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                            Previous
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                            <button key={p} onClick={() => setPage(p)}
+                                className={`px-3 py-1 border rounded-md transition-colors ${safePage === p ? 'bg-primary border-primary text-white' : 'border-white/10 hover:bg-white/10'}`}>
+                                {p}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={safePage === totalPages}
+                            className="px-3 py-1 border border-white/10 rounded-md hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                            Next
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Order Detail Slide-Over Panel ── */}
+            {selectedOrder && (
+                <>
+                    {/* Backdrop */}
+                    <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedOrder(null)} />
+                    {/* Panel */}
+                    <div className="fixed right-0 top-0 h-full z-50 w-full max-w-md bg-[hsl(220,15%,10%)] border-l border-white/10 shadow-2xl flex flex-col"
+                        style={{ animation: 'slideIn 0.2s ease-out' }}>
+                        {/* Panel header */}
+                        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs text-text/40 uppercase tracking-widest font-semibold">Order Details</p>
+                                <h2 className="text-2xl font-bold text-text mt-0.5">#{selectedOrder.id}</h2>
+                            </div>
+                            <button onClick={() => setSelectedOrder(null)}
+                                className="p-2 rounded-lg hover:bg-white/10 text-text/50 hover:text-text transition-all">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Panel Body */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            {/* Status + Type badges */}
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <span className={`px-3 py-1.5 rounded-full text-xs font-bold border uppercase tracking-wider ${STATUS_STYLES[selectedOrder.status]}`}>
+                                    {selectedOrder.status}
+                                </span>
+                                <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${TYPE_STYLES[selectedOrder.order_type]}`}>
+                                    {selectedOrder.order_type}
+                                </span>
+                            </div>
+
+                            {/* Key Info */}
+                            <div className="bg-white/5 rounded-2xl border border-white/10 divide-y divide-white/5">
+                                {[
+                                    { label: 'Customer', value: selectedOrder.customer_name },
+                                    { label: 'Order Date', value: new Date(selectedOrder.order_date).toLocaleString() },
+                                    { label: 'Item Count', value: `${selectedOrder.item_count} unit${selectedOrder.item_count !== 1 ? 's' : ''}` },
+                                    { label: 'Total Amount', value: `$${Number(selectedOrder.total_amount).toFixed(2)}`, bold: true },
+                                ].map(({ label, value, bold }) => (
+                                    <div key={label} className="flex justify-between items-center px-5 py-3.5">
+                                        <span className="text-sm text-text/50">{label}</span>
+                                        <span className={`text-sm ${bold ? 'font-bold text-primary text-base' : 'font-medium text-text'}`}>{value}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Order Type Explanation */}
+                            <div className="bg-primary/5 border border-primary/15 rounded-xl p-4">
+                                <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">{selectedOrder.order_type} Order</p>
+                                <p className="text-sm text-text/70 leading-relaxed">{TYPE_DESC[selectedOrder.order_type]}</p>
+                            </div>
+
+                            {/* Timeline placeholder */}
+                            <div>
+                                <p className="text-xs font-bold text-text/40 uppercase tracking-widest mb-3">Order Timeline</p>
+                                <div className="relative pl-5 border-l border-white/10 space-y-4">
+                                    {[
+                                        { label: 'Order Received', date: new Date(selectedOrder.order_date).toLocaleDateString(), done: true },
+                                        { label: 'Production Started', date: selectedOrder.status !== 'Pending' ? '—' : 'Pending', done: selectedOrder.status !== 'Pending' && selectedOrder.status !== 'Cancelled' },
+                                        { label: 'QC Inspection', date: selectedOrder.status === 'Completed' ? '—' : 'Pending', done: selectedOrder.status === 'Completed' },
+                                        { label: 'Order Completed', date: selectedOrder.status === 'Completed' ? '—' : 'Pending', done: selectedOrder.status === 'Completed' },
+                                    ].map(({ label, date, done }) => (
+                                        <div key={label} className="flex items-start gap-3">
+                                            <div className={`absolute -left-[9px] w-4 h-4 rounded-full border-2 flex items-center justify-center ${done ? 'bg-green-500 border-green-500' : 'bg-background border-white/20'}`}>
+                                                {done && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                            </div>
+                                            <div className="ml-2">
+                                                <p className={`text-sm font-medium ${done ? 'text-text' : 'text-text/40'}`}>{label}</p>
+                                                <p className="text-xs text-text/40 mt-0.5">{date}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Panel Footer */}
+                        <div className="p-5 border-t border-white/10">
+                            <button
+                                onClick={() => setSelectedOrder(null)}
+                                className="w-full py-2.5 text-sm font-semibold rounded-xl border border-white/10 text-text/70 hover:bg-white/5 transition-colors">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* New Order Modal */}
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)}>
+                    <div className="bg-[hsl(220,15%,12%)] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-text/40 hover:text-text transition-colors">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                        <h2 className="text-xl font-bold text-text mb-1">Create New Order</h2>
+                        <p className="text-text/50 text-sm mb-6">Register a new production order in the system.</p>
+
+                        {successMsg ? (
+                            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-green-400 font-medium text-sm text-center">{successMsg}</div>
+                        ) : (
+                            <form onSubmit={handleCreate} className="space-y-4">
+                                {formError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3">{formError}</p>}
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Customer Name *</label>
+                                    <input id="order-customer" type="text" name="customerName" value={form.customerName} onChange={handleFormChange} placeholder="e.g. Acme Corp"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Order Type *</label>
+                                    <select id="order-type" name="orderType" value={form.orderType} onChange={handleFormChange}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                        <option value="OEM">OEM — Original Equipment Manufacturer</option>
+                                        <option value="ODM">ODM — Original Design Manufacturer</option>
+                                        <option value="Bespoke">Bespoke — Custom Made Order</option>
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm font-medium text-text/70 mb-1 block">Total Amount (฿)</label>
+                                        <input id="order-amount" type="number" name="totalAmount" value={form.totalAmount} onChange={handleFormChange} min="0" step="0.01" placeholder="0.00"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-text/70 mb-1 block">Item Count</label>
+                                        <input id="order-items" type="number" name="itemCount" value={form.itemCount} onChange={handleFormChange} min="1"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                    </div>
+                                </div>
+                                <button id="order-submit" type="submit" disabled={submitting}
+                                    className="w-full bg-primary text-white font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60">
+                                    {submitting ? 'Creating…' : 'Create Order'}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes slideIn {
+                    from { transform: translateX(100%); }
+                    to { transform: translateX(0); }
+                }
+            `}</style>
+        </div>
+    );
+}

@@ -1,50 +1,62 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 
 export default function SettingsDropdown() {
     const [isOpen, setIsOpen] = useState(false);
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        localStorage.removeItem('auth_token');
+        navigate('/login');
+    };
 
     return (
         <div className="relative inline-block text-left">
-            <div>
-                <button
-                    type="button"
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="inline-flex justify-center w-full rounded-md border border-secondary shadow-sm px-4 py-2 bg-secondary text-sm font-medium text-text hover:bg-opacity-80 focus:outline-none"
-                    id="options-menu"
-                    aria-haspopup="true"
-                    aria-expanded="true"
-                >
-                    Settings
-                    <svg
-                        className="-mr-1 ml-2 h-5 w-5"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        aria-hidden="true"
-                    >
-                        <path
-                            fillRule="evenodd"
-                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                        />
-                    </svg>
-                </button>
-            </div>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                onBlur={() => setTimeout(() => setIsOpen(false), 150)}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 shadow-sm px-3 py-2 bg-white/5 text-sm font-medium text-text hover:bg-white/10 focus:outline-none transition-colors"
+                id="options-menu"
+                aria-haspopup="true"
+            >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <svg className="w-3 h-3 text-text/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
 
             {isOpen && (
                 <div
-                    className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-secondary ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+                    className="origin-top-right absolute right-0 mt-2 w-52 rounded-xl shadow-2xl bg-[hsl(220,15%,12%)] border border-white/10 focus:outline-none z-50"
                     role="menu"
-                    aria-orientation="vertical"
-                    aria-labelledby="options-menu"
                 >
-                    <div className="py-1" role="none">
-                        <div className="px-4 py-2 text-sm text-text border-b border-background mb-1">
+                    <div className="py-2">
+                        {/* Appearance */}
+                        <div className="px-4 py-2 text-xs font-semibold text-text/40 uppercase tracking-widest">
                             Appearance
                         </div>
-                        <div className="px-4 py-2">
+                        <div className="px-4 py-2 mb-1">
                             <ThemeToggle />
+                        </div>
+
+                        <div className="border-t border-white/10 mt-1 pt-1">
+                            {/* Logout */}
+                            <button
+                                id="btn-logout"
+                                onClick={handleLogout}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                                role="menuitem"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                                Sign Out
+                            </button>
                         </div>
                     </div>
                 </div>
