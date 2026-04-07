@@ -36,8 +36,31 @@ export default function QCRegister() {
     const [submitting, setSubmitting] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
     const [filterResult, setFilterResult] = useState('All');
+    const [orderLookupMsg, setOrderLookupMsg] = useState('');
 
     const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+
+    const handleOrderLookup = async () => {
+        const orderId = String(form.orderId).trim();
+        if (!orderId) return;
+
+        setOrderLookupMsg('');
+        try {
+            const res = await fetch(`/api/orders?id=${encodeURIComponent(orderId)}`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Order not found');
+
+            setForm(prev => ({
+                ...prev,
+                orderId: String(data.id),
+                batchId: prev.batchId || `BCH-${String(data.id).padStart(4, '0')}A`,
+                productDescription: prev.productDescription || `${data.order_type} order for ${data.customer_name} (${data.item_count} items)`,
+            }));
+            setOrderLookupMsg(`Loaded order #${data.id}: ${data.customer_name}`);
+        } catch (err) {
+            setOrderLookupMsg(err.message);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -54,7 +77,7 @@ export default function QCRegister() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    order_id: form.orderId.toUpperCase(),
+                    order_id: String(form.orderId).trim(),
                     batch_id: form.batchId.toUpperCase(),
                     product_description: form.productDescription,
                     aql_level: form.aqlLevel,
@@ -68,6 +91,7 @@ export default function QCRegister() {
             if (!res.ok) throw new Error(data.error || 'Failed to submit');
             setSuccessMsg(`Inspection record #${data.id} logged successfully.`);
             setForm({ orderId: '', batchId: '', productDescription: '', aqlLevel: '', result: 'Pass', defectCount: '0', inspectorName: '', notes: '' });
+            setOrderLookupMsg('');
             await refetch();
             setTimeout(() => { setShowModal(false); setSuccessMsg(''); }, 2000);
         } catch (err) {
@@ -194,8 +218,15 @@ export default function QCRegister() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-sm font-medium text-text/70 mb-1 block">Order ID *</label>
-                                        <input id="qc-order-id" type="text" name="orderId" value={form.orderId} onChange={handleFormChange} placeholder="e.g. ORD-1005"
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                        <div className="flex gap-2">
+                                            <input id="qc-order-id" type="number" name="orderId" value={form.orderId} onChange={handleFormChange} onBlur={handleOrderLookup} placeholder="e.g. 1005"
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                            <button type="button" onClick={handleOrderLookup}
+                                                className="px-3 py-2.5 bg-white/10 border border-white/15 rounded-xl text-sm font-semibold text-text hover:bg-white/15 transition-colors whitespace-nowrap">
+                                                Auto Fill
+                                            </button>
+                                        </div>
+                                        {orderLookupMsg && <p className="text-xs text-text/60 mt-1">{orderLookupMsg}</p>}
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-text/70 mb-1 block">Batch ID *</label>

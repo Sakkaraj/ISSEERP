@@ -1,22 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 function Finance() {
-    // Mock Data based on our new DB schema expectations
-    const [finances] = useState({
-        totalIncome: 17850.50,
-        totalExpenses: 5030.00,
-        netProfit: 12820.50,
-        recentOrders: [
-            { id: 101, name: 'Acme Corp Furniture Set', amount: 4500.00, date: '2026-03-29' },
-            { id: 102, name: 'Global Tech Office Desks', amount: 12400.00, date: '2026-03-25' },
-            { id: 103, name: 'Jane Doe Custom Sofa', amount: 850.50, date: '2026-03-22' },
-        ],
-        recentSupplies: [
-            { id: 201, name: 'Premium Leather (50 rolls)', cost: 3400.00, date: '2026-03-28' },
-            { id: 202, name: 'Oak Wood Planks', cost: 1200.00, date: '2026-03-24' },
-            { id: 203, name: 'Warehouse Tools & Machinery', cost: 430.00, date: '2026-03-20' },
-        ]
+    const [finances, setFinances] = useState({
+        totalIncome: 0,
+        totalExpenses: 0,
+        netProfit: 0,
+        recentOrders: [],
+        recentSupplies: [],
     });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        const fetchFinance = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const res = await fetch('/api/finance');
+                if (!res.ok) throw new Error(`Server error: ${res.status}`);
+                const data = await res.json();
+                setFinances(data);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchFinance();
+    }, []);
 
     return (
         <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full">
@@ -32,6 +44,9 @@ function Finance() {
                     Export Report
                 </button>
             </div>
+
+            {loading && <div className="mb-6 text-sm text-text/60">Loading finance data...</div>}
+            {error && <div className="mb-6 text-sm text-red-400">{error}</div>}
             
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -102,6 +117,9 @@ function Finance() {
                                     </div>
                                 </li>
                             ))}
+                            {finances.recentOrders.length === 0 && (
+                                <li className="p-6 text-sm text-text/50">No completed orders yet.</li>
+                            )}
                         </ul>
                     </div>
                 </div>
@@ -125,6 +143,9 @@ function Finance() {
                                     </div>
                                 </li>
                             ))}
+                            {finances.recentSupplies.length === 0 && (
+                                <li className="p-6 text-sm text-text/50">No supply records yet.</li>
+                            )}
                         </ul>
                     </div>
                 </div>

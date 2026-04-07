@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_name   VARCHAR(200) NOT NULL,
     total_amount    DECIMAL(15, 2) NOT NULL,
     status          ENUM('Pending', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Pending',
+    started_at      TIMESTAMP NULL,
+    completed_at    TIMESTAMP NULL,
     order_type      ENUM('OEM', 'ODM', 'Bespoke') DEFAULT 'OEM',
     item_count      INT NOT NULL DEFAULT 1,
     order_date      TIMESTAMP DEFAULT CURRENT_TIMESTAMP

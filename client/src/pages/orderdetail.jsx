@@ -9,6 +9,8 @@ const STATUS_STYLES = {
     'Cancelled':   'bg-red-500/10 text-red-400 border-red-500/20',
 };
 
+const ORDER_STATUSES = ['Pending', 'In Progress', 'Completed', 'Cancelled'];
+
 const TYPE_STYLES = {
     'OEM':     'bg-purple-500/10 text-purple-400 border-purple-500/20',
     'ODM':     'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
@@ -28,6 +30,10 @@ export default function OrderDetail() {
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [draftStatus, setDraftStatus] = useState('Pending');
+    const [statusSaving, setStatusSaving] = useState(false);
+    const [statusError, setStatusError] = useState('');
+    const [statusMsg, setStatusMsg] = useState('');
 
     // New Order Modal state
     const [showModal, setShowModal] = useState(false);
@@ -51,6 +57,14 @@ export default function OrderDetail() {
     }, []);
 
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+    useEffect(() => {
+        setStatusError('');
+        setStatusMsg('');
+        if (selectedOrder?.status) {
+            setDraftStatus(selectedOrder.status);
+        }
+    }, [selectedOrder?.id]);
 
     const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
@@ -96,6 +110,48 @@ export default function OrderDetail() {
     const paginated = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
     const handleSearch = (e) => { setSearch(e.target.value); setPage(1); };
+
+    const handleStatusUpdate = async () => {
+        if (!selectedOrder) return;
+
+        setStatusSaving(true);
+        setStatusError('');
+        setStatusMsg('');
+
+        try {
+            const res = await fetch('/api/orders', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: selectedOrder.id,
+                    status: draftStatus,
+                }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to update order status');
+
+            setOrders(prev => prev.map(order =>
+                order.id === selectedOrder.id ? {
+                    ...order,
+                    status: draftStatus,
+                    started_at: data.started_at || order.started_at,
+                    completed_at: data.completed_at || order.completed_at,
+                } : order
+            ));
+            setSelectedOrder(prev => prev ? {
+                ...prev,
+                status: draftStatus,
+                started_at: data.started_at || prev.started_at,
+                completed_at: data.completed_at || prev.completed_at,
+            } : prev);
+            setStatusMsg('Order status updated successfully.');
+        } catch (err) {
+            setStatusError(err.message);
+        } finally {
+            setStatusSaving(false);
+        }
+    };
 
     return (
         <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full">
@@ -243,6 +299,31 @@ export default function OrderDetail() {
                                 </span>
                             </div>
 
+                            {/* Status editor */}
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+                                <p className="text-xs font-bold text-text/40 uppercase tracking-widest">Update Status</p>
+                                <div className="flex items-center gap-3">
+                                    <select
+                                        value={draftStatus}
+                                        onChange={(e) => setDraftStatus(e.target.value)}
+                                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    >
+                                        {ORDER_STATUSES.map(status => (
+                                            <option key={status} value={status}>{status}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={handleStatusUpdate}
+                                        disabled={statusSaving || draftStatus === selectedOrder.status}
+                                        className="px-4 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60"
+                                    >
+                                        {statusSaving ? 'Saving...' : 'Save'}
+                                    </button>
+                                </div>
+                                {statusError && <p className="text-xs text-red-400">{statusError}</p>}
+                                {statusMsg && <p className="text-xs text-green-400">{statusMsg}</p>}
+                            </div>
+
                             {/* Key Info */}
                             <div className="bg-white/5 rounded-2xl border border-white/10 divide-y divide-white/5">
                                 {[
@@ -270,9 +351,9 @@ export default function OrderDetail() {
                                 <div className="relative pl-5 border-l border-white/10 space-y-4">
                                     {[
                                         { label: 'Order Received', date: new Date(selectedOrder.order_date).toLocaleDateString(), done: true },
-                                        { label: 'Production Started', date: selectedOrder.status !== 'Pending' ? '—' : 'Pending', done: selectedOrder.status !== 'Pending' && selectedOrder.status !== 'Cancelled' },
-                                        { label: 'QC Inspection', date: selectedOrder.status === 'Completed' ? '—' : 'Pending', done: selectedOrder.status === 'Completed' },
-                                        { label: 'Order Completed', date: selectedOrder.status === 'Completed' ? '—' : 'Pending', done: selectedOrder.status === 'Completed' },
+                                        { label: 'Production Started', date: selectedOrder.started_at ? new Date(selectedOrder.started_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.started_at },
+                                        { label: 'QC Inspection', date: selectedOrder.completed_at ? new Date(selectedOrder.completed_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.completed_at },
+                                        { label: 'Order Completed', date: selectedOrder.completed_at ? new Date(selectedOrder.completed_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.completed_at },
                                     ].map(({ label, date, done }) => (
                                         <div key={label} className="flex items-start gap-3">
                                             <div className={`absolute -left-[9px] w-4 h-4 rounded-full border-2 flex items-center justify-center ${done ? 'bg-green-500 border-green-500' : 'bg-background border-white/20'}`}>

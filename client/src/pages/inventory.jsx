@@ -28,13 +28,25 @@ export default function Inventory() {
     const { data: reservations, loading: resLoading, error: resError, refetch: refetchRes } = useFetch('/api/inventory/reservations');
 
     const [showModal, setShowModal] = useState(false);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showRestockModal, setShowRestockModal] = useState(false);
     const [activeTab, setActiveTab] = useState('stock');
     const [form, setForm] = useState({ materialId: '', quantity: '', orderId: '', purpose: '', reservedBy: '' });
+    const [addForm, setAddForm] = useState({ materialName: '', unit: 'units', totalQty: '', location: 'Warehouse A' });
+    const [restockForm, setRestockForm] = useState({ materialId: '', addedQty: '' });
     const [formError, setFormError] = useState('');
+    const [addError, setAddError] = useState('');
+    const [restockError, setRestockError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [adding, setAdding] = useState(false);
+    const [restocking, setRestocking] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
+    const [addSuccessMsg, setAddSuccessMsg] = useState('');
+    const [restockSuccessMsg, setRestockSuccessMsg] = useState('');
 
     const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleAddFormChange = (e) => setAddForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleRestockFormChange = (e) => setRestockForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
     const handleReserve = async (e) => {
         e.preventDefault();
@@ -73,6 +85,73 @@ export default function Inventory() {
         }
     };
 
+    const handleAddMaterial = async (e) => {
+        e.preventDefault();
+        setAddError('');
+        const totalQty = parseInt(addForm.totalQty, 10);
+
+        if (!addForm.materialName.trim()) { setAddError('Material name is required.'); return; }
+        if (isNaN(totalQty) || totalQty < 0) { setAddError('Enter a valid total quantity (0 or more).'); return; }
+
+        setAdding(true);
+        try {
+            const res = await fetch('/api/inventory/materials', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    material_name: addForm.materialName,
+                    unit: addForm.unit,
+                    total_qty: totalQty,
+                    location: addForm.location,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to add material');
+
+            setAddSuccessMsg(`Material #${data.id} added successfully.`);
+            setAddForm({ materialName: '', unit: 'units', totalQty: '', location: 'Warehouse A' });
+            await refetchMats();
+            setTimeout(() => { setShowAddModal(false); setAddSuccessMsg(''); }, 1800);
+        } catch (err) {
+            setAddError(err.message);
+        } finally {
+            setAdding(false);
+        }
+    };
+
+    const handleRestock = async (e) => {
+        e.preventDefault();
+        setRestockError('');
+        const matId = parseInt(restockForm.materialId, 10);
+        const qty = parseInt(restockForm.addedQty, 10);
+
+        if (!matId) { setRestockError('Please select a material.'); return; }
+        if (!qty || qty <= 0) { setRestockError('Added quantity must be greater than 0.'); return; }
+
+        setRestocking(true);
+        try {
+            const res = await fetch('/api/inventory/materials', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    material_id: matId,
+                    added_qty: qty,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to restock material');
+
+            setRestockSuccessMsg(`Added ${qty} units to material #${matId}.`);
+            setRestockForm({ materialId: '', addedQty: '' });
+            await refetchMats();
+            setTimeout(() => { setShowRestockModal(false); setRestockSuccessMsg(''); }, 1800);
+        } catch (err) {
+            setRestockError(err.message);
+        } finally {
+            setRestocking(false);
+        }
+    };
+
     const getBarColor = (mat) => {
         const pct = mat.total_qty > 0 ? (mat.reserved_qty / mat.total_qty) * 100 : 0;
         if (pct >= 80) return 'bg-red-500';
@@ -100,6 +179,16 @@ export default function Inventory() {
                     </svg>
                     Reserve Material
                 </button>
+                <div className="flex gap-2">
+                    <button onClick={() => setShowAddModal(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white/10 text-text border border-white/15 rounded-xl font-semibold hover:bg-white/15 transition-colors">
+                        Add Material
+                    </button>
+                    <button onClick={() => setShowRestockModal(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white/10 text-text border border-white/15 rounded-xl font-semibold hover:bg-white/15 transition-colors">
+                        Restock
+                    </button>
+                </div>
             </div>
 
             {/* Summary Cards */}
@@ -266,6 +355,93 @@ export default function Inventory() {
                                 <button id="inv-submit" type="submit" disabled={submitting}
                                     className="w-full bg-primary text-white font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
                                     {submitting ? 'Reserving…' : 'Confirm Reservation'}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Add Material Modal */}
+            {showAddModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)}>
+                    <div className="bg-[hsl(220,15%,12%)] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-8 relative" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowAddModal(false)} className="absolute top-4 right-4 text-text/40 hover:text-text transition-colors">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                        <h2 className="text-xl font-bold text-text mb-1">Add New Material</h2>
+                        <p className="text-text/50 text-sm mb-6">Create a new inventory material entry.</p>
+
+                        {addSuccessMsg ? (
+                            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-green-400 font-medium text-sm text-center">{addSuccessMsg}</div>
+                        ) : (
+                            <form onSubmit={handleAddMaterial} className="space-y-4">
+                                {addError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3">{addError}</p>}
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Material Name *</label>
+                                    <input type="text" name="materialName" value={addForm.materialName} onChange={handleAddFormChange} placeholder="e.g. Walnut Wood Planks"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-sm font-medium text-text/70 mb-1 block">Unit</label>
+                                        <input type="text" name="unit" value={addForm.unit} onChange={handleAddFormChange} placeholder="units"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-text/70 mb-1 block">Total Qty *</label>
+                                        <input type="number" name="totalQty" value={addForm.totalQty} onChange={handleAddFormChange} min="0" placeholder="0"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Location</label>
+                                    <input type="text" name="location" value={addForm.location} onChange={handleAddFormChange} placeholder="Warehouse A"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                                <button type="submit" disabled={adding}
+                                    className="w-full bg-primary text-white font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+                                    {adding ? 'Adding…' : 'Add Material'}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Restock Modal */}
+            {showRestockModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowRestockModal(false)}>
+                    <div className="bg-[hsl(220,15%,12%)] border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-8 relative" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowRestockModal(false)} className="absolute top-4 right-4 text-text/40 hover:text-text transition-colors">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                        <h2 className="text-xl font-bold text-text mb-1">Restock Material</h2>
+                        <p className="text-text/50 text-sm mb-6">Increase the total quantity of an existing material.</p>
+
+                        {restockSuccessMsg ? (
+                            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-green-400 font-medium text-sm text-center">{restockSuccessMsg}</div>
+                        ) : (
+                            <form onSubmit={handleRestock} className="space-y-4">
+                                {restockError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3">{restockError}</p>}
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Material *</label>
+                                    <select name="materialId" value={restockForm.materialId} onChange={handleRestockFormChange}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                        <option value="">Select material…</option>
+                                        {materials.map(m => (
+                                            <option key={m.id} value={m.id}>{m.material_name} (current: {m.total_qty} {m.unit})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Added Quantity *</label>
+                                    <input type="number" name="addedQty" value={restockForm.addedQty} onChange={handleRestockFormChange} min="1" placeholder="e.g. 50"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                                <button type="submit" disabled={restocking}
+                                    className="w-full bg-primary text-white font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
+                                    {restocking ? 'Restocking…' : 'Confirm Restock'}
                                 </button>
                             </form>
                         )}

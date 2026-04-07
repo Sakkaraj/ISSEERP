@@ -39,14 +39,34 @@ type ReserveMaterialRequest struct {
 	ReservedBy  string `json:"reserved_by"`
 }
 
+type CreateMaterialRequest struct {
+	MaterialName string `json:"material_name"`
+	Unit         string `json:"unit"`
+	TotalQty     int    `json:"total_qty"`
+	Location     string `json:"location"`
+}
+
+type RestockMaterialRequest struct {
+	MaterialID  int `json:"material_id"`
+	AddedQty    int `json:"added_qty"`
+}
+
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
 func MaterialsHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
+		getMaterials(w, r)
+	case http.MethodPost:
+		createMaterial(w, r)
+	case http.MethodPatch:
+		restockMaterial(w, r)
+	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
+}
 
+func getMaterials(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.DB.Query(`
 		SELECT id, material_name, unit, total_qty, reserved_qty, location, created_at
 		FROM inventory_materials
@@ -71,6 +91,73 @@ func MaterialsHandler(w http.ResponseWriter, r *http.Request) {
 		materials = []InventoryMaterial{}
 	}
 	writeJSON(w, http.StatusOK, materials)
+}
+
+func createMaterial(w http.ResponseWriter, r *http.Request) {
+	var req CreateMaterialRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.MaterialName == "" || req.TotalQty < 0 {
+		jsonError(w, "material_name is required and total_qty must be >= 0", http.StatusBadRequest)
+		return
+	}
+
+	if req.Unit == "" {
+		req.Unit = "units"
+	}
+	if req.Location == "" {
+		req.Location = "Warehouse A"
+	}
+
+	result, err := db.DB.Exec(
+		`INSERT INTO inventory_materials (material_name, unit, total_qty, reserved_qty, location)
+		 VALUES (?, ?, ?, 0, ?)`,
+		req.MaterialName, req.Unit, req.TotalQty, req.Location,
+	)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	writeJSON(w, http.StatusCreated, map[string]interface{}{"message": "Material created", "id": id})
+}
+
+func restockMaterial(w http.ResponseWriter, r *http.Request) {
+	var req RestockMaterialRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.MaterialID <= 0 || req.AddedQty <= 0 {
+		jsonError(w, "material_id and added_qty must be greater than 0", http.StatusBadRequest)
+		return
+	}
+
+	result, err := db.DB.Exec(
+		`UPDATE inventory_materials SET total_qty = total_qty + ? WHERE id = ?`,
+		req.AddedQty, req.MaterialID,
+	)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if rowsAffected == 0 {
+		jsonError(w, "Material not found", http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"message": "Material restocked", "material_id": req.MaterialID, "added_qty": req.AddedQty})
 }
 
 func ReservationsHandler(w http.ResponseWriter, r *http.Request) {

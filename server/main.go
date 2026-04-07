@@ -41,6 +41,7 @@ func setupRouter() *http.ServeMux {
 
 	// UC3 — QC Inspection Register
 	mux.HandleFunc("/api/qc", handlers.QCHandler)
+	mux.HandleFunc("/api/finance", handlers.FinanceHandler)
 
 	// Construct — Design Specifications
 	mux.HandleFunc("/api/constructions", handlers.ConstructionsHandler)
