@@ -22,40 +22,40 @@ The BoonSunClon ERP system encompasses the following use case scope:
                    /                                 \
      ┌─────────────────────────────────────────────────────┐
      │                                                     │
-┌────────┐  Login & Authentication                        │
-│  Staff │  ├─ UC-001: Login to System                    │
-│  User  │  ├─ UC-002: Logout from System                 │
+┌────────┐  Login & Authentication                         │
+│  Staff │  ├─ UC-001: Login to System                     │
+│  User  │  ├─ UC-002: Logout from System                  │
 │        │  │                                              │
 │        │  Order Management                               │
 │        │  ├─ UC-003: View Order List                     │
 │        │  ├─ UC-004: Create New Order                    │
 │        │  ├─ UC-005: Search Orders                       │
 │        │  ├─ UC-006: View Order Details                  │
-│        │  ├─ UC-018: Update Order Status                 │
+│        │  ├─ UC-007: Update Order Status                 │
 │        │  │                                              │
 │        │  Inventory Management                           │
-│        │  ├─ UC-007: View Inventory Materials            │
-│        │  ├─ UC-008: Reserve Material for Order <<Extend UC-004>>
-│        │  ├─ UC-009: View Material Reservations          │
-│        │  ├─ UC-019: Add New Inventory Material          │
-│        │  ├─ UC-020: Restock Inventory Material          │
+│        │  ├─ UC-008: View Inventory Materials            │
+│        │  ├─ UC-009: Reserve Material for Order <<Include UC-004>>
+│        │  ├─ UC-010: View Material Reservations          │
+│        │  ├─ UC-011: Add New Inventory Material          │
+│        │  ├─ UC-012: Restock Inventory Material          │
 │        │  │                                              │
 │        │  Quality Control                                │
-│        │  ├─ UC-010: View QC Records                     │
-│        │  ├─ UC-011: Submit QC Inspection Record         │
-│        │  ├─ UC-012: Filter QC Results                   │
-│        │  ├─ UC-021: Lookup Order for QC Autofill        │
+│        │  ├─ UC-013: View QC Records                     │
+│        │  ├─ UC-014: Submit QC Inspection Record         │
+│        │  ├─ UC-015: Filter QC Results                   │
+│        │  ├─ UC-016: Lookup Order for QC Autofill        │
 │        │  │                                              │
 │        │  Design & Specifications                        │
-│        │  ├─ UC-013: View Design Specifications          │
-│        │  ├─ UC-014: Create Design Specification         │
+│        │  ├─ UC-017: View Design Specifications          │
+│        │  ├─ UC-018: Create Design Specification         │
 │        │  │                                              │
 │        │  Other Features                                 │
-│        │  ├─ UC-015: Navigate System Pages               │
-│        │  ├─ UC-016: Toggle Theme Mode                   │
-│        │  └─ UC-017: View Dashboard & Finance            │
-     │                                                     │
-     └─────────────────────────────────────────────────────┘
+│        │  ├─ UC-019: Navigate System Pages               │
+│        │  ├─ UC-020: Toggle Theme Mode                   │
+│        │  └─ UC-021: View Dashboard & Finance            │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
 
 ### Use Case to Functional Requirement Mapping
 

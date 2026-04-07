@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-const ITEMS_PER_PAGE = 5;
-
 const STATUS_STYLES = {
     'Completed':   'bg-green-500/10 text-green-400 border-green-500/20',
     'In Progress': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
@@ -29,6 +27,7 @@ export default function OrderDetail() {
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(5);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [draftStatus, setDraftStatus] = useState('Pending');
     const [statusSaving, setStatusSaving] = useState(false);
@@ -37,7 +36,7 @@ export default function OrderDetail() {
 
     // New Order Modal state
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({ customerName: '', orderType: 'OEM', totalAmount: '', itemCount: '1' });
+    const [form, setForm] = useState({ customerName: '', orderType: 'OEM', unitPrice: '', itemCount: '1' });
     const [formError, setFormError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
@@ -68,12 +67,21 @@ export default function OrderDetail() {
 
     const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
+    const itemCountValue = parseInt(form.itemCount, 10);
+    const unitPriceValue = parseFloat(form.unitPrice);
+    const calculatedTotal =
+        !Number.isNaN(itemCountValue) && itemCountValue > 0 && !Number.isNaN(unitPriceValue) && unitPriceValue >= 0
+            ? itemCountValue * unitPriceValue
+            : 0;
+
     const handleCreate = async (e) => {
         e.preventDefault();
         setFormError('');
         if (!form.customerName.trim()) { setFormError('Customer name is required.'); return; }
-        const amt = parseFloat(form.totalAmount);
-        if (isNaN(amt) || amt < 0) { setFormError('Enter a valid total amount.'); return; }
+        const count = parseInt(form.itemCount, 10);
+        if (Number.isNaN(count) || count <= 0) { setFormError('Item count must be greater than 0.'); return; }
+        const unitPrice = parseFloat(form.unitPrice);
+        if (Number.isNaN(unitPrice) || unitPrice < 0) { setFormError('Enter a valid unit price.'); return; }
 
         setSubmitting(true);
         try {
@@ -83,14 +91,14 @@ export default function OrderDetail() {
                 body: JSON.stringify({
                     customer_name: form.customerName,
                     order_type: form.orderType,
-                    total_amount: amt,
-                    item_count: parseInt(form.itemCount, 10) || 1,
+                    unit_price: unitPrice,
+                    item_count: count,
                 }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to create order');
             setSuccessMsg(`Order #${data.id} created successfully.`);
-            setForm({ customerName: '', orderType: 'OEM', totalAmount: '', itemCount: '1' });
+            setForm({ customerName: '', orderType: 'OEM', unitPrice: '', itemCount: '1' });
             await fetchOrders();
             setTimeout(() => { setShowModal(false); setSuccessMsg(''); }, 2000);
         } catch (err) {
@@ -105,9 +113,9 @@ export default function OrderDetail() {
         o.customer_name.toLowerCase().includes(search.toLowerCase()) ||
         String(o.id).includes(search)
     );
-    const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
     const safePage = Math.min(page, totalPages);
-    const paginated = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+    const paginated = filtered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
 
     const handleSearch = (e) => { setSearch(e.target.value); setPage(1); };
 
@@ -197,6 +205,7 @@ export default function OrderDetail() {
                                     <th className="p-4">Type</th>
                                     <th className="p-4">Date</th>
                                     <th className="p-4 text-center">Items</th>
+                                    <th className="p-4 text-right">Unit Price</th>
                                     <th className="p-4 text-right">Total Amount</th>
                                     <th className="p-4 pr-6 text-center">Status</th>
                                 </tr>
@@ -217,6 +226,7 @@ export default function OrderDetail() {
                                         </td>
                                         <td className="p-4 text-text/70 text-sm">{new Date(order.order_date).toLocaleDateString()}</td>
                                         <td className="p-4 text-center font-medium text-text/90">{order.item_count}</td>
+                                        <td className="p-4 text-right text-text/90">${Number(order.unit_price || 0).toFixed(2)}</td>
                                         <td className="p-4 text-right font-bold text-text">${Number(order.total_amount).toFixed(2)}</td>
                                         <td className="p-4 pr-6">
                                             <div className="flex justify-center">
@@ -228,7 +238,7 @@ export default function OrderDetail() {
                                     </tr>
                                 ))}
                                 {paginated.length === 0 && (
-                                    <tr><td colSpan={7} className="p-12 text-center text-text/40">No orders found.</td></tr>
+                                    <tr><td colSpan={8} className="p-12 text-center text-text/40">No orders found.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -237,11 +247,28 @@ export default function OrderDetail() {
 
                 {/* Pagination */}
                 <div className="p-4 border-t border-white/10 flex items-center justify-between text-sm text-text/60 bg-black/10">
-                    <span>
-                        Showing <b className="text-text">{filtered.length === 0 ? 0 : (safePage - 1) * ITEMS_PER_PAGE + 1}</b>–
-                        <b className="text-text">{Math.min(safePage * ITEMS_PER_PAGE, filtered.length)}</b> of{' '}
-                        <b className="text-text">{filtered.length}</b> orders
-                    </span>
+                    <div className="flex items-center gap-4">
+                        <span>
+                            Showing <b className="text-text">{filtered.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}</b>–
+                            <b className="text-text">{Math.min(safePage * itemsPerPage, filtered.length)}</b> of{' '}
+                            <b className="text-text">{filtered.length}</b> orders
+                        </span>
+                        <label className="flex items-center gap-2">
+                            <span className="text-text/50">Rows:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => {
+                                    setItemsPerPage(Number(e.target.value));
+                                    setPage(1);
+                                }}
+                                className="bg-white/5 border border-white/10 rounded-md px-2 py-1 text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            >
+                                {[5, 10, 20, 50].map(size => (
+                                    <option key={size} value={size}>{size}</option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
                     <div className="flex items-center gap-1">
                         <button
                             onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -330,6 +357,10 @@ export default function OrderDetail() {
                                     { label: 'Customer', value: selectedOrder.customer_name },
                                     { label: 'Order Date', value: new Date(selectedOrder.order_date).toLocaleString() },
                                     { label: 'Item Count', value: `${selectedOrder.item_count} unit${selectedOrder.item_count !== 1 ? 's' : ''}` },
+                                        { label: 'Unit Price', value: `$${Number(selectedOrder.unit_price || 0).toFixed(2)}` },
+                                    { label: 'Production Staff', value: selectedOrder.production_assigned_to || 'Not assigned' },
+                                    { label: 'Production Progress', value: `${selectedOrder.production_progress ?? 0}%` },
+                                    { label: 'Production Last Update', value: selectedOrder.production_updated_at ? new Date(selectedOrder.production_updated_at).toLocaleString() : 'No update yet' },
                                     { label: 'Total Amount', value: `$${Number(selectedOrder.total_amount).toFixed(2)}`, bold: true },
                                 ].map(({ label, value, bold }) => (
                                     <div key={label} className="flex justify-between items-center px-5 py-3.5">
@@ -352,6 +383,7 @@ export default function OrderDetail() {
                                     {[
                                         { label: 'Order Received', date: new Date(selectedOrder.order_date).toLocaleDateString(), done: true },
                                         { label: 'Production Started', date: selectedOrder.started_at ? new Date(selectedOrder.started_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.started_at },
+                                        { label: 'Production Progress Submitted', date: selectedOrder.production_submitted_at ? new Date(selectedOrder.production_submitted_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.production_submitted_at },
                                         { label: 'QC Inspection', date: selectedOrder.completed_at ? new Date(selectedOrder.completed_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.completed_at },
                                         { label: 'Order Completed', date: selectedOrder.completed_at ? new Date(selectedOrder.completed_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.completed_at },
                                     ].map(({ label, date, done }) => (
@@ -412,15 +444,25 @@ export default function OrderDetail() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-sm font-medium text-text/70 mb-1 block">Total Amount (฿)</label>
-                                        <input id="order-amount" type="number" name="totalAmount" value={form.totalAmount} onChange={handleFormChange} min="0" step="0.01" placeholder="0.00"
+                                        <label className="text-sm font-medium text-text/70 mb-1 block">Unit Price (฿) *</label>
+                                        <input id="order-unit-price" type="number" name="unitPrice" value={form.unitPrice} onChange={handleFormChange} min="0" step="0.01" placeholder="0.00"
                                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium text-text/70 mb-1 block">Item Count</label>
+                                        <label className="text-sm font-medium text-text/70 mb-1 block">Item Count *</label>
                                         <input id="order-items" type="number" name="itemCount" value={form.itemCount} onChange={handleFormChange} min="1"
                                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50" />
                                     </div>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Calculated Total (฿)</label>
+                                    <input
+                                        id="order-total-calculated"
+                                        type="text"
+                                        value={calculatedTotal.toFixed(2)}
+                                        readOnly
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text/80"
+                                    />
                                 </div>
                                 <button id="order-submit" type="submit" disabled={submitting}
                                     className="w-full bg-primary text-white font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60">

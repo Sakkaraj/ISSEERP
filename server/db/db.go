@@ -59,6 +59,22 @@ func ensureSchema() error {
 			log.Printf("Schema migration warning: cannot add completed_at column: %v", err)
 		}
 	}
+	unitPriceExists, err := ordersColumnExists("unit_price")
+	if err != nil {
+		return err
+	}
+	if !unitPriceExists {
+		if err := ensureOrdersColumn("unit_price", "DECIMAL(15,2) NOT NULL DEFAULT 0.00"); err != nil {
+			log.Printf("Schema migration warning: cannot add unit_price column: %v", err)
+		}
+	}
+	if _, err := DB.Exec(`
+		UPDATE orders
+		SET unit_price = ROUND(total_amount / item_count, 2)
+		WHERE item_count > 0 AND total_amount > 0 AND unit_price = 0
+	`); err != nil {
+		log.Printf("Schema migration warning: cannot backfill unit_price values: %v", err)
+	}
 
 	startedAtExists, err = ordersColumnExists("started_at")
 	if err != nil {
@@ -72,6 +88,41 @@ func ensureSchema() error {
 	OrdersStatusTimestampsEnabled = startedAtExists && completedAtExists
 	if !OrdersStatusTimestampsEnabled {
 		log.Printf("Schema migration warning: order status timestamps disabled (missing started_at/completed_at columns)")
+	}
+
+	if err := ensureProductionTables(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ensureProductionTables() error {
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS production_assignments (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			order_id INT NOT NULL UNIQUE,
+			assigned_to VARCHAR(100) NOT NULL,
+			assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (order_id) REFERENCES orders(id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS production_progress (
+			id INT AUTO_INCREMENT PRIMARY KEY,
+			order_id INT NOT NULL,
+			updated_by VARCHAR(100) NOT NULL,
+			progress_percent INT NOT NULL,
+			progress_note TEXT,
+			is_submitted BOOLEAN NOT NULL DEFAULT FALSE,
+			submitted_at TIMESTAMP NULL,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (order_id) REFERENCES orders(id)
+		)`,
+	}
+
+	for _, q := range queries {
+		if _, err := DB.Exec(q); err != nil {
+			return err
+		}
 	}
 
 	return nil

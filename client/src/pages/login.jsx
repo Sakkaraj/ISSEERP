@@ -37,10 +37,14 @@ function Login() {
             }
 
             if (response.ok && data.success) {
-                // Success: Optionially save token and navigate to dashboard
+                // Success: Save token and role, then navigate to dashboard
                 if (data.token) {
                     localStorage.setItem('auth_token', data.token);
                 }
+                if (data.role) {
+                    localStorage.setItem('user_role', data.role);
+                }
+                localStorage.setItem('username', data.username || username);
                 navigate('/dashboard');
             } else {
                 setError(data.message || 'Invalid username or password.');

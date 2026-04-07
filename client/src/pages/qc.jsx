@@ -29,6 +29,7 @@ function useFetch(url) {
 
 export default function QCRegister() {
     const { data: records, loading, error, refetch } = useFetch('/api/qc');
+    const { data: requirements, loading: requirementsLoading, error: requirementsError, refetch: refetchRequirements } = useFetch('/api/qc/requirements');
 
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState({ orderId: '', batchId: '', productDescription: '', aqlLevel: '', result: 'Pass', defectCount: '0', inspectorName: '', notes: '' });
@@ -89,10 +90,19 @@ export default function QCRegister() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to submit');
-            setSuccessMsg(`Inspection record #${data.id} logged successfully.`);
+            if (data.completed_at) {
+                const completedAt = new Date(data.completed_at).toLocaleString();
+                setSuccessMsg(`Inspection record #${data.id} logged. Order #${data.order_id} marked Completed at ${completedAt}.`);
+            } else if (data.order_status === 'In Progress') {
+                const startedAt = data.started_at ? new Date(data.started_at).toLocaleString() : 'now';
+                setSuccessMsg(`Inspection record #${data.id} logged. Order #${data.order_id} moved to In Progress at ${startedAt}.`);
+            } else {
+                setSuccessMsg(`Inspection record #${data.id} logged successfully.`);
+            }
             setForm({ orderId: '', batchId: '', productDescription: '', aqlLevel: '', result: 'Pass', defectCount: '0', inspectorName: '', notes: '' });
             setOrderLookupMsg('');
             await refetch();
+            await refetchRequirements();
             setTimeout(() => { setShowModal(false); setSuccessMsg(''); }, 2000);
         } catch (err) {
             setFormError(err.message);
@@ -136,6 +146,51 @@ export default function QCRegister() {
                         <p className={`text-3xl font-extrabold mt-1 ${c.color}`}>{c.value}</p>
                     </div>
                 ))}
+            </div>
+
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl overflow-hidden mb-8">
+                <div className="px-6 py-4 border-b border-white/10 bg-black/20">
+                    <h2 className="text-lg font-bold text-text">QC Required Items</h2>
+                    <p className="text-text/60 text-sm">Orders submitted from production that still need a QC Pass result.</p>
+                </div>
+                {requirementsLoading ? (
+                    <div className="p-8 text-center text-text/40">Loading QC requirements...</div>
+                ) : requirementsError ? (
+                    <div className="p-8 text-center text-red-400 text-sm">{requirementsError}</div>
+                ) : requirements.length === 0 ? (
+                    <div className="p-8 text-center text-green-400 text-sm">All production-submitted orders are already passed in QC.</div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-black/20 border-b border-white/10 text-xs font-semibold text-text/60 uppercase tracking-wider">
+                                    <th className="p-4 pl-6">Order</th>
+                                    <th className="p-4">Customer</th>
+                                    <th className="p-4">Type</th>
+                                    <th className="p-4">Submitted By</th>
+                                    <th className="p-4">Submitted At</th>
+                                    <th className="p-4 pr-6 text-center">Latest QC</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10">
+                                {requirements.map((req) => (
+                                    <tr key={req.order_id} className="hover:bg-white/5 transition-colors">
+                                        <td className="p-4 pl-6 font-mono text-sm text-primary">#{req.order_id}</td>
+                                        <td className="p-4 text-sm text-text">{req.customer_name}</td>
+                                        <td className="p-4 text-sm text-text/80">{req.order_type} ({req.item_count})</td>
+                                        <td className="p-4 text-sm text-text/80">{req.production_submitted_by || req.assigned_to || '-'}</td>
+                                        <td className="p-4 text-sm text-text/60">{req.production_submitted_at ? new Date(req.production_submitted_at).toLocaleString() : '-'}</td>
+                                        <td className="p-4 pr-6 text-center">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${req.latest_qc_result === 'Fail' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}>
+                                                {req.latest_qc_result || 'Not Inspected'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
 
             {/* Filter Tabs */}

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     username    VARCHAR(100) NOT NULL UNIQUE,
     password    VARCHAR(255) NOT NULL,
-    role        ENUM('Admin', 'Staff') DEFAULT 'Staff',
+    role        ENUM('Admin', 'SaleStaff', 'QualityController', 'LogisticsStaff', 'Production') DEFAULT 'LogisticsStaff',
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS orders (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     customer_name   VARCHAR(200) NOT NULL,
+    unit_price      DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     total_amount    DECIMAL(15, 2) NOT NULL,
     status          ENUM('Pending', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Pending',
     started_at      TIMESTAMP NULL,
@@ -99,20 +100,50 @@ CREATE TABLE IF NOT EXISTS qc_records (
     inspected_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- =============================================
+-- Production Assignments (order-to-production staff mapping)
+-- =============================================
+CREATE TABLE IF NOT EXISTS production_assignments (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    order_id        INT NOT NULL UNIQUE,
+    assigned_to     VARCHAR(100) NOT NULL,
+    assigned_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+);
+
+-- =============================================
+-- Production Progress History
+-- =============================================
+CREATE TABLE IF NOT EXISTS production_progress (
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    order_id            INT NOT NULL,
+    updated_by          VARCHAR(100) NOT NULL,
+    progress_percent    INT NOT NULL,
+    progress_note       TEXT,
+    is_submitted        BOOLEAN NOT NULL DEFAULT FALSE,
+    submitted_at        TIMESTAMP NULL,
+    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+);
+
 -- ===========================================
 -- MOCK DATA
 -- ===========================================
 
--- Users (password is bcrypt hash for 'admin123' — replace in production)
+-- Users (password is bcrypt hash for 'password123' — replace in production)
 INSERT INTO users (username, password, role) VALUES 
-('admin', '$2a$10$JeHeY25ac2eNYZNDfSjW/e8Fmv6dKarNtqq5OYKYFwSQFT1H4ev1u', 'Admin');
+('admin', '$2a$10$JeHeY25ac2eNYZNDfSjW/e8Fmv6dKarNtqq5OYKYFwSQFT1H4ev1u', 'Admin'),
+('sale_staff', '$2a$10$JeHeY25ac2eNYZNDfSjW/e8Fmv6dKarNtqq5OYKYFwSQFT1H4ev1u', 'SaleStaff'),
+('qc_controller', '$2a$10$JeHeY25ac2eNYZNDfSjW/e8Fmv6dKarNtqq5OYKYFwSQFT1H4ev1u', 'QualityController'),
+('logistics_staff', '$2a$10$JeHeY25ac2eNYZNDfSjW/e8Fmv6dKarNtqq5OYKYFwSQFT1H4ev1u', 'LogisticsStaff'),
+('production_staff', '$2a$10$JeHeY25ac2eNYZNDfSjW/e8Fmv6dKarNtqq5OYKYFwSQFT1H4ev1u', 'Production');
 
 -- Orders (order_type and item_count included directly)
-INSERT INTO orders (customer_name, total_amount, status, order_type, item_count) VALUES 
-('Acme Corp',           4500.00,  'Completed',   'ODM',      12),
-('Jane Doe',             850.50,  'In Progress', 'Bespoke',   1),
-('Global Tech',        12400.00,  'Pending',     'OEM',      34),
-('Stark Industries',     930.00,  'Cancelled',   'OEM',       2);
+INSERT INTO orders (customer_name, unit_price, total_amount, status, order_type, item_count) VALUES 
+('Acme Corp',           375.00,   4500.00,  'Completed',   'ODM',      12),
+('Jane Doe',            850.50,    850.50,  'In Progress', 'Bespoke',   1),
+('Global Tech',         364.71,  12400.00,  'Pending',     'OEM',      34),
+('Stark Industries',    465.00,    930.00,  'Cancelled',   'OEM',       2);
 
 -- Supplies
 INSERT INTO supplies (item_name, cost, category) VALUES 
@@ -138,6 +169,18 @@ INSERT INTO material_reservations (material_id, order_id, reserved_qty, purpose,
 
 -- QC Records
 INSERT INTO qc_records (order_id, batch_id, product_description, aql_level, result, defect_count, inspector_name, notes) VALUES
-('ORD-1003', 'BCH-003A', 'Teak Dining Chair (x34)', 'AQL 2.5', 'Pass', 0, 'Napat K.',   'All units within tolerance.'),
-('ORD-1002', 'BCH-002A', 'Bespoke Leather Sofa',    'AQL 1.5', 'Fail', 3, 'Somchai W.', 'Stitching defects on left armrest. Sent for rework.'),
-('ORD-1001', 'BCH-001B', 'Oak Office Desk (x12)',   'AQL 2.5', 'Pass', 1, 'Anong P.',   'Minor surface blemish on 1 unit — accepted.');
+('1', 'BCH-0001A', 'ODM order for Acme Corp (12 items)',     'AQL 2.5', 'Pass', 0, 'Napat K.',   'All units within tolerance.'),
+('2', 'BCH-0002A', 'Bespoke order for Jane Doe (1 items)',    'AQL 1.5', 'Fail', 3, 'Somchai W.', 'Stitching defects on left armrest. Sent for rework.'),
+('3', 'BCH-0003A', 'OEM order for Global Tech (34 items)',    'AQL 2.5', 'Pass', 1, 'Anong P.',   'Minor surface blemish on 1 unit - accepted.');
+
+-- Production Assignments
+INSERT INTO production_assignments (order_id, assigned_to) VALUES
+(1, 'production_staff'),
+(2, 'production_staff'),
+(3, 'production_staff');
+
+-- Production Progress History
+INSERT INTO production_progress (order_id, updated_by, progress_percent, progress_note, is_submitted, submitted_at) VALUES
+(1, 'production_staff', 100, 'Assembly and finishing completed. Ready for final handover.', TRUE, CURRENT_TIMESTAMP),
+(2, 'production_staff', 65, 'Frame and upholstery are in progress.', FALSE, NULL),
+(3, 'production_staff', 25, 'Raw material prep and cutting started.', FALSE, NULL);

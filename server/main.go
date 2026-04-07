@@ -31,6 +31,7 @@ func setupRouter() *http.ServeMux {
 
 	// Auth
 	mux.HandleFunc("/api/login", handlers.LoginHandler)
+	mux.HandleFunc("/api/users", handlers.CreateUserHandler)
 
 	// UC1 — Orders
 	mux.HandleFunc("/api/orders", handlers.OrdersHandler)
@@ -41,7 +42,10 @@ func setupRouter() *http.ServeMux {
 
 	// UC3 — QC Inspection Register
 	mux.HandleFunc("/api/qc", handlers.QCHandler)
+	mux.HandleFunc("/api/qc/requirements", handlers.QCRequirementsHandler)
 	mux.HandleFunc("/api/finance", handlers.FinanceHandler)
+	mux.HandleFunc("/api/production/orders", handlers.ProductionOrdersHandler)
+	mux.HandleFunc("/api/production/progress", handlers.ProductionProgressHandler)
 
 	// Construct — Design Specifications
 	mux.HandleFunc("/api/constructions", handlers.ConstructionsHandler)

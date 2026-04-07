@@ -1,15 +1,8 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 
 export default function SettingsDropdown() {
     const [isOpen, setIsOpen] = useState(false);
-    const navigate = useNavigate();
-
-    const handleLogout = () => {
-        localStorage.removeItem('auth_token');
-        navigate('/login');
-    };
 
     return (
         <div className="relative inline-block text-left">
@@ -42,21 +35,6 @@ export default function SettingsDropdown() {
                         </div>
                         <div className="px-4 py-2 mb-1">
                             <ThemeToggle />
-                        </div>
-
-                        <div className="border-t border-white/10 mt-1 pt-1">
-                            {/* Logout */}
-                            <button
-                                id="btn-logout"
-                                onClick={handleLogout}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-                                role="menuitem"
-                            >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                </svg>
-                                Sign Out
-                            </button>
                         </div>
                     </div>
                 </div>
