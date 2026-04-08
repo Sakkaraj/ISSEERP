@@ -14,6 +14,13 @@ type Order struct {
 	ID                     int        `json:"id"`
 	CustomerName           string     `json:"customer_name"`
 	OrderType              string     `json:"order_type"`
+	ConstructionID         *int       `json:"construction_id,omitempty"`
+	DesignMode             *string    `json:"design_mode,omitempty"`
+	ReferenceCode          *string    `json:"reference_code,omitempty"`
+	CustomerRequirements   *string    `json:"customer_requirements,omitempty"`
+	FurnitureType          *string    `json:"furniture_type,omitempty"`
+	PrimaryFinish          *string    `json:"primary_finish,omitempty"`
+	SecondaryFinish        *string    `json:"secondary_finish,omitempty"`
 	UnitPrice              float64    `json:"unit_price"`
 	TotalAmount            float64    `json:"total_amount"`
 	ItemCount              int        `json:"item_count"`
@@ -30,10 +37,11 @@ type Order struct {
 }
 
 type CreateOrderRequest struct {
-	CustomerName string  `json:"customer_name"`
-	OrderType    string  `json:"order_type"`
-	UnitPrice    float64 `json:"unit_price"`
-	ItemCount    int     `json:"item_count"`
+	CustomerName   string  `json:"customer_name"`
+	OrderType      string  `json:"order_type"`
+	ConstructionID int     `json:"construction_id"`
+	UnitPrice      float64 `json:"unit_price"`
+	ItemCount      int     `json:"item_count"`
 }
 
 type UpdateOrderStatusRequest struct {
@@ -62,7 +70,10 @@ func OrdersHandler(w http.ResponseWriter, r *http.Request) {
 
 func getOrders(w http.ResponseWriter, r *http.Request) {
 	query := `
-		SELECT orders.id, orders.customer_name, COALESCE(orders.order_type, 'OEM'), COALESCE(orders.unit_price, 0), orders.total_amount,
+		SELECT orders.id, orders.customer_name, COALESCE(orders.order_type, 'OEM'), orders.construction_id,
+		       c.design_mode, c.reference_code, c.customer_requirements,
+		       c.furniture_type, c.primary_finish, c.secondary_finish,
+		       COALESCE(orders.unit_price, 0), orders.total_amount,
 		       COALESCE(orders.item_count, 1), orders.status, orders.order_date,
 		       pa.assigned_to,
 		       pp.progress_percent,
@@ -71,6 +82,7 @@ func getOrders(w http.ResponseWriter, r *http.Request) {
 		       pp.submitted_at,
 		       pp.updated_by
 		FROM orders
+		LEFT JOIN constructions c ON c.id = orders.construction_id
 		LEFT JOIN production_assignments pa ON pa.order_id = orders.id
 		LEFT JOIN production_progress pp ON pp.id = (
 			SELECT p2.id
@@ -83,7 +95,10 @@ func getOrders(w http.ResponseWriter, r *http.Request) {
 	`
 	if db.OrdersStatusTimestampsEnabled {
 		query = `
-			SELECT orders.id, orders.customer_name, COALESCE(orders.order_type, 'OEM'), COALESCE(orders.unit_price, 0), orders.total_amount,
+			SELECT orders.id, orders.customer_name, COALESCE(orders.order_type, 'OEM'), orders.construction_id,
+			       c.design_mode, c.reference_code, c.customer_requirements,
+			       c.furniture_type, c.primary_finish, c.secondary_finish,
+			       COALESCE(orders.unit_price, 0), orders.total_amount,
 			       COALESCE(orders.item_count, 1), orders.status, orders.order_date, orders.started_at, orders.completed_at,
 			       pa.assigned_to,
 			       pp.progress_percent,
@@ -92,6 +107,7 @@ func getOrders(w http.ResponseWriter, r *http.Request) {
 			       pp.submitted_at,
 			       pp.updated_by
 			FROM orders
+			LEFT JOIN constructions c ON c.id = orders.construction_id
 			LEFT JOIN production_assignments pa ON pa.order_id = orders.id
 			LEFT JOIN production_progress pp ON pp.id = (
 				SELECT p2.id
@@ -115,23 +131,59 @@ func getOrders(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var o Order
 		var assignedTo sql.NullString
+		var constructionID sql.NullInt64
+		var designMode sql.NullString
+		var referenceCode sql.NullString
+		var customerRequirements sql.NullString
+		var furnitureType sql.NullString
+		var primaryFinish sql.NullString
+		var secondaryFinish sql.NullString
 		var progress sql.NullInt64
 		var progressNote sql.NullString
 		var progressUpdatedAt sql.NullTime
 		var progressSubmittedAt sql.NullTime
 		var progressUpdatedBy sql.NullString
 		if db.OrdersStatusTimestampsEnabled {
-			if err := rows.Scan(&o.ID, &o.CustomerName, &o.OrderType, &o.UnitPrice, &o.TotalAmount,
+			if err := rows.Scan(&o.ID, &o.CustomerName, &o.OrderType, &constructionID,
+				&designMode, &referenceCode, &customerRequirements,
+				&furnitureType, &primaryFinish, &secondaryFinish,
+				&o.UnitPrice, &o.TotalAmount,
 				&o.ItemCount, &o.Status, &o.OrderDate, &o.StartedAt, &o.CompletedAt,
 				&assignedTo, &progress, &progressNote, &progressUpdatedAt, &progressSubmittedAt, &progressUpdatedBy); err != nil {
 				continue
 			}
 		} else {
-			if err := rows.Scan(&o.ID, &o.CustomerName, &o.OrderType, &o.UnitPrice, &o.TotalAmount,
+			if err := rows.Scan(&o.ID, &o.CustomerName, &o.OrderType, &constructionID,
+				&designMode, &referenceCode, &customerRequirements,
+				&furnitureType, &primaryFinish, &secondaryFinish,
+				&o.UnitPrice, &o.TotalAmount,
 				&o.ItemCount, &o.Status, &o.OrderDate,
 				&assignedTo, &progress, &progressNote, &progressUpdatedAt, &progressSubmittedAt, &progressUpdatedBy); err != nil {
 				continue
 			}
+		}
+
+		if constructionID.Valid {
+			cID := int(constructionID.Int64)
+			o.ConstructionID = &cID
+		}
+		if designMode.Valid {
+			o.DesignMode = &designMode.String
+		}
+		if referenceCode.Valid {
+			o.ReferenceCode = &referenceCode.String
+		}
+		if customerRequirements.Valid {
+			o.CustomerRequirements = &customerRequirements.String
+		}
+		if furnitureType.Valid {
+			o.FurnitureType = &furnitureType.String
+		}
+		if primaryFinish.Valid {
+			o.PrimaryFinish = &primaryFinish.String
+		}
+		if secondaryFinish.Valid {
+			o.SecondaryFinish = &secondaryFinish.String
 		}
 
 		if assignedTo.Valid {
@@ -173,6 +225,13 @@ func getOrderByID(w http.ResponseWriter, r *http.Request) {
 
 	var o Order
 	var assignedTo sql.NullString
+	var constructionID sql.NullInt64
+	var designMode sql.NullString
+	var referenceCode sql.NullString
+	var customerRequirements sql.NullString
+	var furnitureType sql.NullString
+	var primaryFinish sql.NullString
+	var secondaryFinish sql.NullString
 	var progress sql.NullInt64
 	var progressNote sql.NullString
 	var progressUpdatedAt sql.NullTime
@@ -181,7 +240,10 @@ func getOrderByID(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if db.OrdersStatusTimestampsEnabled {
 		err = db.DB.QueryRow(`
-			SELECT orders.id, orders.customer_name, COALESCE(orders.order_type, 'OEM'), COALESCE(orders.unit_price, 0), orders.total_amount,
+			SELECT orders.id, orders.customer_name, COALESCE(orders.order_type, 'OEM'), orders.construction_id,
+			       c.design_mode, c.reference_code, c.customer_requirements,
+			       c.furniture_type, c.primary_finish, c.secondary_finish,
+			       COALESCE(orders.unit_price, 0), orders.total_amount,
 			       COALESCE(orders.item_count, 1), orders.status, orders.order_date, orders.started_at, orders.completed_at,
 			       pa.assigned_to,
 			       pp.progress_percent,
@@ -190,6 +252,7 @@ func getOrderByID(w http.ResponseWriter, r *http.Request) {
 			       pp.submitted_at,
 			       pp.updated_by
 			FROM orders
+			LEFT JOIN constructions c ON c.id = orders.construction_id
 			LEFT JOIN production_assignments pa ON pa.order_id = orders.id
 			LEFT JOIN production_progress pp ON pp.id = (
 				SELECT p2.id
@@ -200,13 +263,19 @@ func getOrderByID(w http.ResponseWriter, r *http.Request) {
 			)
 			WHERE orders.id = ?
 		`, id).Scan(
-			&o.ID, &o.CustomerName, &o.OrderType, &o.UnitPrice, &o.TotalAmount,
+			&o.ID, &o.CustomerName, &o.OrderType, &constructionID,
+			&designMode, &referenceCode, &customerRequirements,
+			&furnitureType, &primaryFinish, &secondaryFinish,
+			&o.UnitPrice, &o.TotalAmount,
 			&o.ItemCount, &o.Status, &o.OrderDate, &o.StartedAt, &o.CompletedAt,
 			&assignedTo, &progress, &progressNote, &progressUpdatedAt, &progressSubmittedAt, &progressUpdatedBy,
 		)
 	} else {
 		err = db.DB.QueryRow(`
-			SELECT orders.id, orders.customer_name, COALESCE(orders.order_type, 'OEM'), COALESCE(orders.unit_price, 0), orders.total_amount,
+			SELECT orders.id, orders.customer_name, COALESCE(orders.order_type, 'OEM'), orders.construction_id,
+			       c.design_mode, c.reference_code, c.customer_requirements,
+			       c.furniture_type, c.primary_finish, c.secondary_finish,
+			       COALESCE(orders.unit_price, 0), orders.total_amount,
 			       COALESCE(orders.item_count, 1), orders.status, orders.order_date,
 			       pa.assigned_to,
 			       pp.progress_percent,
@@ -215,6 +284,7 @@ func getOrderByID(w http.ResponseWriter, r *http.Request) {
 			       pp.submitted_at,
 			       pp.updated_by
 			FROM orders
+			LEFT JOIN constructions c ON c.id = orders.construction_id
 			LEFT JOIN production_assignments pa ON pa.order_id = orders.id
 			LEFT JOIN production_progress pp ON pp.id = (
 				SELECT p2.id
@@ -225,7 +295,10 @@ func getOrderByID(w http.ResponseWriter, r *http.Request) {
 			)
 			WHERE orders.id = ?
 		`, id).Scan(
-			&o.ID, &o.CustomerName, &o.OrderType, &o.UnitPrice, &o.TotalAmount,
+			&o.ID, &o.CustomerName, &o.OrderType, &constructionID,
+			&designMode, &referenceCode, &customerRequirements,
+			&furnitureType, &primaryFinish, &secondaryFinish,
+			&o.UnitPrice, &o.TotalAmount,
 			&o.ItemCount, &o.Status, &o.OrderDate,
 			&assignedTo, &progress, &progressNote, &progressUpdatedAt, &progressSubmittedAt, &progressUpdatedBy,
 		)
@@ -237,6 +310,28 @@ func getOrderByID(w http.ResponseWriter, r *http.Request) {
 
 	if assignedTo.Valid {
 		o.ProductionAssignedTo = &assignedTo.String
+	}
+	if constructionID.Valid {
+		cID := int(constructionID.Int64)
+		o.ConstructionID = &cID
+	}
+	if designMode.Valid {
+		o.DesignMode = &designMode.String
+	}
+	if referenceCode.Valid {
+		o.ReferenceCode = &referenceCode.String
+	}
+	if customerRequirements.Valid {
+		o.CustomerRequirements = &customerRequirements.String
+	}
+	if furnitureType.Valid {
+		o.FurnitureType = &furnitureType.String
+	}
+	if primaryFinish.Valid {
+		o.PrimaryFinish = &primaryFinish.String
+	}
+	if secondaryFinish.Valid {
+		o.SecondaryFinish = &secondaryFinish.String
 	}
 	if progress.Valid {
 		p := int(progress.Int64)
@@ -270,6 +365,10 @@ func createOrder(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "customer_name and order_type are required", http.StatusBadRequest)
 		return
 	}
+	if req.ConstructionID <= 0 {
+		jsonError(w, "construction_id is required", http.StatusBadRequest)
+		return
+	}
 	if req.ItemCount <= 0 {
 		jsonError(w, "item_count must be greater than 0", http.StatusBadRequest)
 		return
@@ -279,12 +378,22 @@ func createOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var constructionExists int
+	if err := db.DB.QueryRow(`SELECT COUNT(*) FROM constructions WHERE id = ?`, req.ConstructionID).Scan(&constructionExists); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if constructionExists == 0 {
+		jsonError(w, "Linked design specification not found", http.StatusBadRequest)
+		return
+	}
+
 	totalAmount := float64(req.ItemCount) * req.UnitPrice
 
 	result, err := db.DB.Exec(
-		`INSERT INTO orders (customer_name, order_type, unit_price, total_amount, item_count, status)
-		 VALUES (?, ?, ?, ?, ?, 'Pending')`,
-		req.CustomerName, req.OrderType, req.UnitPrice, totalAmount, req.ItemCount,
+		`INSERT INTO orders (customer_name, order_type, construction_id, unit_price, total_amount, item_count, status)
+		 VALUES (?, ?, ?, ?, ?, ?, 'Pending')`,
+		req.CustomerName, req.OrderType, req.ConstructionID, req.UnitPrice, totalAmount, req.ItemCount,
 	)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)

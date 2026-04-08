@@ -1,33 +1,63 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 function Dashboard() {
-    const [stats] = useState([
+    const [stats, setStats] = useState([
         {
             title: 'Pending Orders',
-            value: '4',
+            value: '0',
             icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
             color: 'text-yellow-500', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20'
         },
         {
             title: 'Materials Reserved',
-            value: '3',
+            value: '0',
             icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
             color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20'
         },
         {
-            title: 'Completed This Month',
-            value: '28',
+            title: 'Production Completed',
+            value: '0',
             icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
             color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/20'
         },
         {
             title: 'Pending QC Inspections',
-            value: '5',
+            value: '0',
             icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
             color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-500/20'
         },
     ]);
+    const [statsError, setStatsError] = useState('');
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadSummary() {
+            setStatsError('');
+            try {
+                const res = await fetch('/api/dashboard/summary');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to load dashboard summary');
+                if (cancelled) return;
+
+                setStats(prev => prev.map((item) => {
+                    if (item.title === 'Pending Orders') return { ...item, value: String(data.pending_orders ?? 0) };
+                    if (item.title === 'Materials Reserved') return { ...item, value: String(data.materials_reserved ?? 0) };
+                    if (item.title === 'Production Completed') return { ...item, value: String(data.completed_production ?? 0) };
+                    if (item.title === 'Pending QC Inspections') return { ...item, value: String(data.pending_qc ?? 0) };
+                    return item;
+                }));
+            } catch (err) {
+                if (!cancelled) {
+                    setStatsError(err.message || 'Failed to load dashboard summary');
+                }
+            }
+        }
+
+        loadSummary();
+        return () => { cancelled = true; };
+    }, []);
 
     const quickActions = [
         { to: '/orderdetail', label: 'New Order',          desc: 'Create OEM, ODM or Bespoke order', icon: 'M12 4v16m8-8H4', color: 'hover:border-primary/40 hover:bg-primary/10 group-hover:text-primary' },
@@ -62,6 +92,9 @@ function Dashboard() {
 
             {/* Metrics Grid */}
             <h2 className="text-xs font-bold text-text/40 uppercase tracking-widest mb-4">Live Metrics</h2>
+            {statsError && (
+                <p className="text-xs text-red-400 mb-3">{statsError}</p>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {stats.map((stat, idx) => (
                     <div key={idx} className={`bg-white/5 backdrop-blur-lg border ${stat.border} rounded-2xl p-6 shadow-xl`}>

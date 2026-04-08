@@ -68,6 +68,15 @@ func ensureSchema() error {
 			log.Printf("Schema migration warning: cannot add unit_price column: %v", err)
 		}
 	}
+	constructionIDExists, err := ordersColumnExists("construction_id")
+	if err != nil {
+		return err
+	}
+	if !constructionIDExists {
+		if err := ensureOrdersColumn("construction_id", "INT NULL"); err != nil {
+			log.Printf("Schema migration warning: cannot add construction_id column: %v", err)
+		}
+	}
 	if _, err := DB.Exec(`
 		UPDATE orders
 		SET unit_price = ROUND(total_amount / item_count, 2)
@@ -91,6 +100,10 @@ func ensureSchema() error {
 	}
 
 	if err := ensureProductionTables(); err != nil {
+		return err
+	}
+
+	if err := ensureConstructionColumns(); err != nil {
 		return err
 	}
 
@@ -133,6 +146,30 @@ func ensureOrdersColumn(columnName, columnType string) error {
 	return err
 }
 
+func ensureConstructionColumns() error {
+	columns := map[string]string{
+		"design_mode":           "ENUM('OEM', 'ODM', 'Bespoke') NOT NULL DEFAULT 'OEM'",
+		"reference_code":        "VARCHAR(100) NULL",
+		"customer_requirements": "TEXT NULL",
+	}
+
+	for columnName, columnType := range columns {
+		exists, err := constructionsColumnExists(columnName)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+		_, err = DB.Exec(fmt.Sprintf("ALTER TABLE constructions ADD COLUMN %s %s", columnName, columnType))
+		if err != nil {
+			log.Printf("Schema migration warning: cannot add constructions.%s column: %v", columnName, err)
+		}
+	}
+
+	return nil
+}
+
 func ordersColumnExists(columnName string) (bool, error) {
 	var exists int
 	err := DB.QueryRow(`
@@ -140,6 +177,22 @@ func ordersColumnExists(columnName string) (bool, error) {
 		FROM information_schema.COLUMNS
 		WHERE TABLE_SCHEMA = DATABASE()
 		  AND TABLE_NAME = 'orders'
+		  AND COLUMN_NAME = ?
+	`, columnName).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists > 0, nil
+}
+
+func constructionsColumnExists(columnName string) (bool, error) {
+	var exists int
+	err := DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE()
+		  AND TABLE_NAME = 'constructions'
 		  AND COLUMN_NAME = ?
 	`, columnName).Scan(&exists)
 	if err != nil {

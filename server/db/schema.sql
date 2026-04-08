@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS orders (
     started_at      TIMESTAMP NULL,
     completed_at    TIMESTAMP NULL,
     order_type      ENUM('OEM', 'ODM', 'Bespoke') DEFAULT 'OEM',
+    construction_id INT NULL,
     item_count      INT NOT NULL DEFAULT 1,
     order_date      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -46,9 +47,12 @@ CREATE TABLE IF NOT EXISTS supplies (
 -- =============================================
 CREATE TABLE IF NOT EXISTS constructions (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
+    design_mode         ENUM('OEM', 'ODM', 'Bespoke') DEFAULT 'OEM',
     furniture_type      VARCHAR(100) NOT NULL,
     primary_finish      VARCHAR(100) NOT NULL,
     secondary_finish    VARCHAR(100),
+    reference_code      VARCHAR(100),
+    customer_requirements TEXT,
     extra_finish        BOOLEAN DEFAULT FALSE,
     special_finishes    JSON,           -- e.g. Cushions, Stitching, etc.
     image_url           VARCHAR(500),

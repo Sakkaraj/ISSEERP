@@ -26,6 +26,7 @@ function useFetch(url) {
 export default function Inventory() {
     const { data: materials, loading: matLoading, error: matError, refetch: refetchMats } = useFetch('/api/inventory/materials');
     const { data: reservations, loading: resLoading, error: resError, refetch: refetchRes } = useFetch('/api/inventory/reservations');
+    const { data: orders } = useFetch('/api/orders');
 
     const [showModal, setShowModal] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -66,7 +67,7 @@ export default function Inventory() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     material_id: mat.id,
-                    order_id: form.orderId.toUpperCase(),
+                    order_id: form.orderId,
                     reserved_qty: qty,
                     purpose: form.purpose,
                     reserved_by: form.reservedBy,
@@ -74,7 +75,7 @@ export default function Inventory() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to reserve');
-            setSuccessMsg(`Reserved ${qty} ${mat.unit} of ${mat.material_name} for ${form.orderId.toUpperCase()}.`);
+            setSuccessMsg(`Reserved ${qty} ${mat.unit} of ${mat.material_name} for order #${form.orderId}.`);
             setForm({ materialId: '', quantity: '', orderId: '', purpose: '', reservedBy: '' });
             await Promise.all([refetchMats(), refetchRes()]);
             setTimeout(() => { setShowModal(false); setSuccessMsg(''); }, 2000);
@@ -153,15 +154,18 @@ export default function Inventory() {
     };
 
     const getBarColor = (mat) => {
-        const pct = mat.total_qty > 0 ? (mat.reserved_qty / mat.total_qty) * 100 : 0;
+        const denominator = mat.total_qty + mat.reserved_qty;
+        const pct = denominator > 0 ? (mat.reserved_qty / denominator) * 100 : 0;
         if (pct >= 80) return 'bg-red-500';
         if (pct >= 50) return 'bg-yellow-500';
         return 'bg-green-500';
     };
 
-    const totalReserved = materials.reduce((a, m) => a + m.reserved_qty, 0);
+    const totalReserved = reservations
+        .filter(r => r.status === 'Active')
+        .reduce((sum, r) => sum + Number(r.reserved_qty || 0), 0);
     const activeRes = reservations.filter(r => r.status === 'Active').length;
-    const lowStock = materials.filter(m => (m.total_qty - m.reserved_qty) < 20).length;
+    const lowStock = materials.filter(m => m.total_qty < 20).length;
     const loading = matLoading || resLoading;
 
     return (
@@ -238,8 +242,9 @@ export default function Inventory() {
                             </thead>
                             <tbody className="divide-y divide-white/10">
                                 {materials.map(mat => {
-                                    const available = mat.total_qty - mat.reserved_qty;
-                                    const pct = mat.total_qty > 0 ? Math.round((mat.reserved_qty / mat.total_qty) * 100) : 0;
+                                    const available = mat.total_qty;
+                                    const denominator = mat.total_qty + mat.reserved_qty;
+                                    const pct = denominator > 0 ? Math.round((mat.reserved_qty / denominator) * 100) : 0;
                                     return (
                                         <tr key={mat.id} className="hover:bg-white/5 transition-colors">
                                             <td className="p-4 pl-6 font-mono text-xs text-text/50">#{mat.id}</td>
@@ -325,7 +330,7 @@ export default function Inventory() {
                                         <option value="">Select material…</option>
                                         {materials.map(m => (
                                             <option key={m.id} value={m.id}>
-                                                {m.material_name} ({m.total_qty - m.reserved_qty} {m.unit} available)
+                                                {m.material_name} ({m.total_qty} {m.unit} available)
                                             </option>
                                         ))}
                                     </select>
@@ -338,8 +343,15 @@ export default function Inventory() {
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium text-text/70 mb-1 block">Order ID *</label>
-                                        <input id="inv-order-id" type="text" name="orderId" value={form.orderId} onChange={handleFormChange} placeholder="e.g. ORD-1010"
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                        <select id="inv-order-id" name="orderId" value={form.orderId} onChange={handleFormChange}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                            <option value="">Select order...</option>
+                                            {(Array.isArray(orders) ? orders : []).map(order => (
+                                                <option key={order.id} value={order.id}>
+                                                    #{order.id} - {order.customer_name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                                 <div>

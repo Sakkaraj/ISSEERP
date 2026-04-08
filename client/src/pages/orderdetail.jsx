@@ -23,6 +23,7 @@ const TYPE_DESC = {
 
 export default function OrderDetail() {
     const [orders, setOrders] = useState([]);
+    const [constructions, setConstructions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
@@ -33,10 +34,13 @@ export default function OrderDetail() {
     const [statusSaving, setStatusSaving] = useState(false);
     const [statusError, setStatusError] = useState('');
     const [statusMsg, setStatusMsg] = useState('');
+    const [orderMaterials, setOrderMaterials] = useState([]);
+    const [materialsLoading, setMaterialsLoading] = useState(false);
+    const [materialsError, setMaterialsError] = useState('');
 
     // New Order Modal state
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({ customerName: '', orderType: 'OEM', unitPrice: '', itemCount: '1' });
+    const [form, setForm] = useState({ customerName: '', orderType: 'OEM', constructionId: '', unitPrice: '', itemCount: '1' });
     const [formError, setFormError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
@@ -58,11 +62,67 @@ export default function OrderDetail() {
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
     useEffect(() => {
+        let cancelled = false;
+
+        async function fetchConstructions() {
+            try {
+                const res = await fetch('/api/constructions');
+                if (!res.ok) throw new Error(`Server error: ${res.status}`);
+                const data = await res.json();
+                if (!cancelled) {
+                    setConstructions(Array.isArray(data) ? data : []);
+                }
+            } catch (_) {
+                if (!cancelled) {
+                    setConstructions([]);
+                }
+            }
+        }
+
+        fetchConstructions();
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
         setStatusError('');
         setStatusMsg('');
         if (selectedOrder?.status) {
             setDraftStatus(selectedOrder.status);
         }
+    }, [selectedOrder?.id]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function fetchOrderMaterials() {
+            if (!selectedOrder?.id) {
+                setOrderMaterials([]);
+                setMaterialsError('');
+                return;
+            }
+
+            setMaterialsLoading(true);
+            setMaterialsError('');
+            try {
+                const res = await fetch(`/api/inventory/reservations?order_id=${encodeURIComponent(selectedOrder.id)}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to load linked materials');
+                if (!cancelled) {
+                    setOrderMaterials(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setMaterialsError(err.message || 'Failed to load linked materials');
+                }
+            } finally {
+                if (!cancelled) {
+                    setMaterialsLoading(false);
+                }
+            }
+        }
+
+        fetchOrderMaterials();
+        return () => { cancelled = true; };
     }, [selectedOrder?.id]);
 
     const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -78,6 +138,11 @@ export default function OrderDetail() {
         e.preventDefault();
         setFormError('');
         if (!form.customerName.trim()) { setFormError('Customer name is required.'); return; }
+        const constructionId = parseInt(form.constructionId, 10);
+        if (Number.isNaN(constructionId) || constructionId <= 0) {
+            setFormError('Design specification is required.');
+            return;
+        }
         const count = parseInt(form.itemCount, 10);
         if (Number.isNaN(count) || count <= 0) { setFormError('Item count must be greater than 0.'); return; }
         const unitPrice = parseFloat(form.unitPrice);
@@ -91,6 +156,7 @@ export default function OrderDetail() {
                 body: JSON.stringify({
                     customer_name: form.customerName,
                     order_type: form.orderType,
+                    construction_id: constructionId,
                     unit_price: unitPrice,
                     item_count: count,
                 }),
@@ -98,7 +164,7 @@ export default function OrderDetail() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to create order');
             setSuccessMsg(`Order #${data.id} created successfully.`);
-            setForm({ customerName: '', orderType: 'OEM', unitPrice: '', itemCount: '1' });
+            setForm({ customerName: '', orderType: 'OEM', constructionId: '', unitPrice: '', itemCount: '1' });
             await fetchOrders();
             setTimeout(() => { setShowModal(false); setSuccessMsg(''); }, 2000);
         } catch (err) {
@@ -355,6 +421,12 @@ export default function OrderDetail() {
                             <div className="bg-white/5 rounded-2xl border border-white/10 divide-y divide-white/5">
                                 {[
                                     { label: 'Customer', value: selectedOrder.customer_name },
+                                    { label: 'Design Spec', value: selectedOrder.construction_id ? `#${selectedOrder.construction_id}` : 'Not linked' },
+                                    { label: 'Spec Type', value: selectedOrder.design_mode || '—' },
+                                    { label: 'Customer Ref', value: selectedOrder.reference_code || '—' },
+                                    { label: 'Furniture Type', value: selectedOrder.furniture_type || '—' },
+                                    { label: 'Primary Finish', value: selectedOrder.primary_finish || '—' },
+                                    { label: 'Customer Requirements', value: selectedOrder.customer_requirements || '—' },
                                     { label: 'Order Date', value: new Date(selectedOrder.order_date).toLocaleString() },
                                     { label: 'Item Count', value: `${selectedOrder.item_count} unit${selectedOrder.item_count !== 1 ? 's' : ''}` },
                                         { label: 'Unit Price', value: `$${Number(selectedOrder.unit_price || 0).toFixed(2)}` },
@@ -368,6 +440,32 @@ export default function OrderDetail() {
                                         <span className={`text-sm ${bold ? 'font-bold text-primary text-base' : 'font-medium text-text'}`}>{value}</span>
                                     </div>
                                 ))}
+                            </div>
+
+                            <div className="bg-white/5 rounded-2xl border border-white/10 p-4">
+                                <p className="text-xs font-bold text-text/40 uppercase tracking-widest mb-3">Linked Materials</p>
+                                {materialsLoading ? (
+                                    <p className="text-sm text-text/40">Loading linked materials...</p>
+                                ) : materialsError ? (
+                                    <p className="text-sm text-red-400">{materialsError}</p>
+                                ) : orderMaterials.length === 0 ? (
+                                    <p className="text-sm text-text/50">No materials reserved for this order yet.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {orderMaterials.map((res) => (
+                                            <div key={res.id} className="rounded-lg border border-white/10 px-3 py-2 flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm font-medium text-text">{res.material_name}</p>
+                                                    <p className="text-xs text-text/50">Reserved by {res.reserved_by}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm text-text">{res.reserved_qty}</p>
+                                                    <p className={`text-xs ${res.status === 'Active' ? 'text-yellow-400' : 'text-green-400'}`}>{res.status}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Order Type Explanation */}
@@ -440,6 +538,23 @@ export default function OrderDetail() {
                                         <option value="OEM">OEM — Original Equipment Manufacturer</option>
                                         <option value="ODM">ODM — Original Design Manufacturer</option>
                                         <option value="Bespoke">Bespoke — Custom Made Order</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Design Specification *</label>
+                                    <select
+                                        id="order-construction"
+                                        name="constructionId"
+                                        value={form.constructionId}
+                                        onChange={handleFormChange}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    >
+                                        <option value="">Select design spec...</option>
+                                        {constructions.map(spec => (
+                                            <option key={spec.id} value={spec.id}>
+                                                #{spec.id} - {spec.design_mode || 'OEM'} / {spec.furniture_type} ({spec.primary_finish})
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">

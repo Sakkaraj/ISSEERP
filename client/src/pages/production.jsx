@@ -111,9 +111,9 @@ export default function Production() {
 
     const summary = useMemo(() => {
         const total = orders.length;
-        const completed = orders.filter((o) => o.status === 'Completed').length;
-        const inProgress = orders.filter((o) => o.status === 'In Progress').length;
-        const pending = orders.filter((o) => o.status === 'Pending').length;
+        const completed = orders.filter((o) => o.production_status === 'Completed').length;
+        const inProgress = orders.filter((o) => o.production_status === 'In Progress').length;
+        const pending = orders.filter((o) => o.production_status === 'Pending').length;
         return { total, completed, inProgress, pending };
     }, [orders]);
 
@@ -148,7 +148,7 @@ export default function Production() {
                     progress_updated_at: new Date().toISOString(),
                     progress_submitted_at: submit ? new Date().toISOString() : o.progress_submitted_at,
                     progress_last_updated_by: selectedOrder.assigned_to || username,
-                    status: data.order_status || o.status,
+                    production_status: data.production_status || o.production_status,
                     started_at: data.started_at || o.started_at,
                     completed_at: data.completed_at || o.completed_at,
                 };
@@ -161,7 +161,7 @@ export default function Production() {
                 progress_updated_at: new Date().toISOString(),
                 progress_submitted_at: submit ? new Date().toISOString() : prev.progress_submitted_at,
                 progress_last_updated_by: prev.assigned_to || username,
-                status: data.order_status || prev.status,
+                production_status: data.production_status || prev.production_status,
                 started_at: data.started_at || prev.started_at,
                 completed_at: data.completed_at || prev.completed_at,
             } : prev);
@@ -229,8 +229,8 @@ export default function Production() {
                                             <p className="text-xs text-text/60 mt-1">{order.progress_percent || 0}%</p>
                                         </td>
                                         <td className="p-4 text-center">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${STATUS_STYLES[order.status] || 'bg-white/5 text-text/40 border-white/10'}`}>
-                                                {order.status}
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${STATUS_STYLES[order.production_status] || 'bg-white/5 text-text/40 border-white/10'}`}>
+                                                {order.production_status || 'Pending'}
                                             </span>
                                         </td>
                                         <td className="p-4 pr-6 text-sm text-text/60">
@@ -272,7 +272,7 @@ export default function Production() {
                                 <p className="text-sm text-text/60 mt-3">Assigned To</p>
                                 <p className="font-medium text-text">{selectedOrder.assigned_to}</p>
                                 <p className="text-sm text-text/60 mt-3">Current Status</p>
-                                <p className="font-medium text-text">{selectedOrder.status}</p>
+                                <p className="font-medium text-text">{selectedOrder.production_status || 'Pending'}</p>
                                 <p className="text-sm text-text/60 mt-3">Latest Note</p>
                                 <p className="text-sm text-text/90">{selectedOrder.progress_note || 'No note yet'}</p>
                             </div>

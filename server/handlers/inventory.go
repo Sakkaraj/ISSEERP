@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"server/db"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -47,8 +50,8 @@ type CreateMaterialRequest struct {
 }
 
 type RestockMaterialRequest struct {
-	MaterialID  int `json:"material_id"`
-	AddedQty    int `json:"added_qty"`
+	MaterialID int `json:"material_id"`
+	AddedQty   int `json:"added_qty"`
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -172,14 +175,18 @@ func ReservationsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getReservations(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.DB.Query(`
+	orderID := strings.TrimSpace(r.URL.Query().Get("order_id"))
+
+	query := `
 		SELECT mr.id, mr.material_id, im.material_name, mr.order_id,
 		       mr.reserved_qty, COALESCE(mr.purpose,''), mr.reserved_by,
 		       mr.status, mr.reserved_at
 		FROM material_reservations mr
 		JOIN inventory_materials im ON mr.material_id = im.id
+		WHERE (? = '' OR mr.order_id = ?)
 		ORDER BY mr.reserved_at DESC
-	`)
+	`
+	rows, err := db.DB.Query(query, orderID, orderID)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -207,41 +214,75 @@ func createReservation(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+	req.OrderID = strings.TrimSpace(req.OrderID)
+	req.ReservedBy = strings.TrimSpace(req.ReservedBy)
+	req.Purpose = strings.TrimSpace(req.Purpose)
 	if req.MaterialID == 0 || req.OrderID == "" || req.ReservedQty <= 0 || req.ReservedBy == "" {
 		jsonError(w, "material_id, order_id, reserved_qty, and reserved_by are required", http.StatusBadRequest)
 		return
 	}
 
-	// Check available stock
-	var totalQty, reservedQty int
-	err := db.DB.QueryRow(`SELECT total_qty, reserved_qty FROM inventory_materials WHERE id = ?`, req.MaterialID).
-		Scan(&totalQty, &reservedQty)
-	if err != nil {
-		jsonError(w, "Material not found", http.StatusNotFound)
-		return
-	}
-	if req.ReservedQty > (totalQty - reservedQty) {
-		jsonError(w, "Insufficient available quantity", http.StatusBadRequest)
+	orderIDInt, err := strconv.Atoi(req.OrderID)
+	if err != nil || orderIDInt <= 0 {
+		jsonError(w, "order_id must be a valid numeric order id", http.StatusBadRequest)
 		return
 	}
 
-	// Insert reservation
-	_, err = db.DB.Exec(
-		`INSERT INTO material_reservations (material_id, order_id, reserved_qty, purpose, reserved_by)
-		 VALUES (?, ?, ?, ?, ?)`,
-		req.MaterialID, req.OrderID, req.ReservedQty, req.Purpose, req.ReservedBy,
-	)
+	var orderExists int
+	if err := db.DB.QueryRow(`SELECT COUNT(*) FROM orders WHERE id = ?`, orderIDInt).Scan(&orderExists); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if orderExists == 0 {
+		jsonError(w, "Linked order not found", http.StatusBadRequest)
+		return
+	}
+
+	tx, err := db.DB.Begin()
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer tx.Rollback()
 
-	// Update reserved_qty on the material
-	_, err = db.DB.Exec(
-		`UPDATE inventory_materials SET reserved_qty = reserved_qty + ? WHERE id = ?`,
-		req.ReservedQty, req.MaterialID,
-	)
-	if err != nil {
+	var totalQty int
+	var currentReservedQty int
+	materialErr := tx.QueryRow(`SELECT total_qty, reserved_qty FROM inventory_materials WHERE id = ? FOR UPDATE`, req.MaterialID).
+		Scan(&totalQty, &currentReservedQty)
+	if materialErr == sql.ErrNoRows {
+		jsonError(w, "Material not found", http.StatusNotFound)
+		return
+	}
+	if materialErr != nil {
+		jsonError(w, materialErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	if req.ReservedQty > totalQty {
+		jsonError(w, "Insufficient available quantity", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := tx.Exec(
+		`INSERT INTO material_reservations (material_id, order_id, reserved_qty, purpose, reserved_by)
+		 VALUES (?, ?, ?, ?, ?)`,
+		req.MaterialID, strconv.Itoa(orderIDInt), req.ReservedQty, req.Purpose, req.ReservedBy,
+	); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := tx.Exec(
+		`UPDATE inventory_materials
+		 SET total_qty = total_qty - ?,
+		     reserved_qty = reserved_qty + ?
+		 WHERE id = ?`,
+		req.ReservedQty, req.ReservedQty, req.MaterialID,
+	); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

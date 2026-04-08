@@ -28,6 +28,13 @@ type FinanceSummaryResponse struct {
 	RecentSupplies []FinanceSupplyItem `json:"recentSupplies"`
 }
 
+type DashboardSummaryResponse struct {
+	PendingOrders       int `json:"pending_orders"`
+	MaterialsReserved   int `json:"materials_reserved"`
+	CompletedProduction int `json:"completed_production"`
+	PendingQC           int `json:"pending_qc"`
+}
+
 func FinanceHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -99,6 +106,64 @@ func FinanceHandler(w http.ResponseWriter, r *http.Request) {
 		NetProfit:      totalIncome - totalExpenses,
 		RecentOrders:   recentOrders,
 		RecentSupplies: recentSupplies,
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func DashboardSummaryHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	resp := DashboardSummaryResponse{}
+
+	if err := db.DB.QueryRow(`SELECT COUNT(*) FROM orders WHERE status = 'Pending'`).Scan(&resp.PendingOrders); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.DB.QueryRow(`
+		SELECT COALESCE(SUM(reserved_qty), 0)
+		FROM material_reservations
+		WHERE status = 'Active'
+	`).Scan(&resp.MaterialsReserved); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM orders o
+		LEFT JOIN production_progress pp ON pp.id = (
+			SELECT p2.id
+			FROM production_progress p2
+			WHERE p2.order_id = o.id
+			ORDER BY p2.updated_at DESC, p2.id DESC
+			LIMIT 1
+		)
+		WHERE COALESCE(pp.progress_percent, 0) >= 100
+	`).Scan(&resp.CompletedProduction); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM orders o
+		LEFT JOIN production_progress pp ON pp.id = (
+			SELECT p2.id
+			FROM production_progress p2
+			WHERE p2.order_id = o.id
+			ORDER BY p2.updated_at DESC, p2.id DESC
+			LIMIT 1
+		)
+		WHERE pp.is_submitted = TRUE
+		  AND o.status <> 'Completed'
+	`).Scan(&resp.PendingQC); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	writeJSON(w, http.StatusOK, resp)

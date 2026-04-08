@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"server/db"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,6 +18,7 @@ type ProductionOrder struct {
 	TotalAmount           float64    `json:"total_amount"`
 	ItemCount             int        `json:"item_count"`
 	Status                string     `json:"status"`
+	ProductionStatus      string     `json:"production_status"`
 	OrderDate             time.Time  `json:"order_date"`
 	StartedAt             *time.Time `json:"started_at,omitempty"`
 	CompletedAt           *time.Time `json:"completed_at,omitempty"`
@@ -66,6 +68,11 @@ func ProductionOrdersHandler(w http.ResponseWriter, r *http.Request) {
 			o.total_amount,
 			COALESCE(o.item_count, 1) AS item_count,
 			o.status,
+			CASE
+				WHEN COALESCE(pp.progress_percent, 0) >= 100 THEN 'Completed'
+				WHEN COALESCE(pp.progress_percent, 0) > 0 THEN 'In Progress'
+				ELSE 'Pending'
+			END AS production_status,
 			o.order_date,
 			o.started_at,
 			o.completed_at,
@@ -108,6 +115,7 @@ func ProductionOrdersHandler(w http.ResponseWriter, r *http.Request) {
 			&o.TotalAmount,
 			&o.ItemCount,
 			&o.Status,
+			&o.ProductionStatus,
 			&o.OrderDate,
 			&o.StartedAt,
 			&o.CompletedAt,
@@ -251,27 +259,8 @@ func ProductionProgressHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Submit {
-		if _, err := tx.Exec(`
-			UPDATE orders
-			SET
-				status = 'In Progress',
-				started_at = CASE WHEN started_at IS NULL THEN CURRENT_TIMESTAMP ELSE started_at END,
-				completed_at = NULL
-			WHERE id = ?
-		`, req.OrderID); err != nil {
-			jsonError(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else if calculatedProgress > 0 {
-		if _, err := tx.Exec(`
-			UPDATE orders
-			SET
-				status = CASE WHEN status = 'Pending' THEN 'In Progress' ELSE status END,
-				started_at = CASE WHEN started_at IS NULL THEN CURRENT_TIMESTAMP ELSE started_at END,
-				completed_at = CASE WHEN status = 'Completed' THEN NULL ELSE completed_at END
-			WHERE id = ?
-		`, req.OrderID); err != nil {
+	if calculatedProgress >= 100 {
+		if err := releaseActiveReservationsByOrderTx(tx, req.OrderID); err != nil {
 			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -300,8 +289,74 @@ func ProductionProgressHandler(w http.ResponseWriter, r *http.Request) {
 		"progress_note":       progressNoteToSave,
 		"submitted":           req.Submit,
 		"order_status":        orderStatus,
+		"production_status":   deriveProductionStatus(calculatedProgress),
 		"started_at":          startedAt,
 		"completed_at":        completedAt,
 		"progress_updated_by": req.Assignee,
 	})
+}
+
+func deriveProductionStatus(progressPercent int) string {
+	if progressPercent >= 100 {
+		return "Completed"
+	}
+	if progressPercent > 0 {
+		return "In Progress"
+	}
+	return "Pending"
+}
+
+func releaseActiveReservationsByOrderTx(tx *sql.Tx, orderID int) error {
+	rows, err := tx.Query(`
+		SELECT id, material_id, reserved_qty
+		FROM material_reservations
+		WHERE order_id = ? AND status = 'Active'
+		FOR UPDATE
+	`, strconv.Itoa(orderID))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	reservationIDs := make([]int, 0)
+	byMaterial := map[int]int{}
+
+	for rows.Next() {
+		var id int
+		var materialID int
+		var reservedQty int
+		if err := rows.Scan(&id, &materialID, &reservedQty); err != nil {
+			return err
+		}
+		reservationIDs = append(reservationIDs, id)
+		byMaterial[materialID] += reservedQty
+	}
+
+	if len(reservationIDs) == 0 {
+		return nil
+	}
+
+	for materialID, qty := range byMaterial {
+		if _, err := tx.Exec(`
+			UPDATE inventory_materials
+			SET reserved_qty = GREATEST(reserved_qty - ?, 0)
+			WHERE id = ?
+		`, qty, materialID); err != nil {
+			return err
+		}
+	}
+
+	placeholders := make([]string, 0, len(reservationIDs))
+	args := make([]interface{}, 0, len(reservationIDs))
+	for _, id := range reservationIDs {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+
+	query := `UPDATE material_reservations SET status = 'Released' WHERE id IN (` + strings.Join(placeholders, ",") + `)`
+	if _, err := tx.Exec(query, args...); err != nil {
+		return err
+	}
+
+	return nil
 }

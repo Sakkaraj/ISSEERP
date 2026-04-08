@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
+const DESIGN_MODES = ['OEM', 'ODM', 'Bespoke'];
 const FURNITURE_TYPES = ['Chair', 'Table', 'Desk', 'Bed', 'Sofa', 'Bookshelf', 'Cabinet', 'Wardrobe'];
 const FINISH_OPTIONS = ['Natural Oak', 'Walnut Stain', 'Ebony', 'White Lacquer', 'Teak Oil', 'Matte Black', 'Antique Brass', 'Raw Steel'];
-const SPECIAL_OPTIONS = ['High-Density Foam Cushioning', 'Contrast Stitching', 'Metal Inlay', 'Glass Inserts', 'LED Accent Strip', 'Anti-Scratch Coating'];
+const SPECIAL_OPTIONS_BY_MODE = {
+    OEM: ['Mass production jig required', 'Retail-ready packaging', 'Barcode and SKU labeling', 'Knock-down assembly instructions'],
+    ODM: ['Prototype variant requested', 'Private-label logo area', 'Catalog customization', 'Market-specific compliance'],
+    Bespoke: ['Hand-carved detailing', 'Custom dimensions', 'Family crest engraving', 'Premium upholstery selection'],
+};
+
+const MODE_HINT = {
+    OEM: 'Use this for standardized products manufactured to customer brand requirements.',
+    ODM: 'Use this for your own design adapted for a customer segment or private label.',
+    Bespoke: 'Use this for fully custom furniture based on individual customer desires.',
+};
 
 export default function Construct() {
     const [submissions, setSubmissions] = useState([]);
@@ -10,9 +21,12 @@ export default function Construct() {
     const [showForm, setShowForm] = useState(false);
 
     const [form, setForm] = useState({
+        designMode: 'OEM',
         furnitureType: '',
         primaryFinish: '',
         secondaryFinish: '',
+        referenceCode: '',
+        customerRequirements: '',
         extraFinish: false,
         specialFinishes: [],
     });
@@ -51,6 +65,14 @@ export default function Construct() {
         }
     };
 
+    const handleDesignModeChange = (designMode) => {
+        setForm(prev => ({
+            ...prev,
+            designMode,
+            specialFinishes: [],
+        }));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setFormError('');
@@ -63,9 +85,12 @@ export default function Construct() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    design_mode: form.designMode,
                     furniture_type: form.furnitureType,
                     primary_finish: form.primaryFinish,
                     secondary_finish: form.secondaryFinish,
+                    reference_code: form.referenceCode,
+                    customer_requirements: form.customerRequirements,
                     extra_finish: form.extraFinish,
                     special_finishes: form.specialFinishes,
                     image_url: '',
@@ -74,7 +99,16 @@ export default function Construct() {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to submit');
             setSuccessMsg(`Design Spec #${data.id} submitted successfully.`);
-            setForm({ furnitureType: '', primaryFinish: '', secondaryFinish: '', extraFinish: false, specialFinishes: [] });
+            setForm({
+                designMode: 'OEM',
+                furnitureType: '',
+                primaryFinish: '',
+                secondaryFinish: '',
+                referenceCode: '',
+                customerRequirements: '',
+                extraFinish: false,
+                specialFinishes: [],
+            });
             await fetchSubmissions();
             setTimeout(() => { setShowForm(false); setSuccessMsg(''); }, 2500);
         } catch (err) {
@@ -121,10 +155,13 @@ export default function Construct() {
                             <thead>
                                 <tr className="bg-black/20 border-b border-white/10 text-xs font-semibold text-text/60 uppercase tracking-wider">
                                     <th className="p-4 pl-6">Spec #</th>
+                                    <th className="p-4">Type</th>
                                     <th className="p-4">Furniture Type</th>
+                                    <th className="p-4">Ref</th>
                                     <th className="p-4">Primary Finish</th>
                                     <th className="p-4">Secondary Finish</th>
                                     <th className="p-4">Special Finishes</th>
+                                    <th className="p-4">Customer Requirements</th>
                                     <th className="p-4 pr-6">Submitted</th>
                                 </tr>
                             </thead>
@@ -135,7 +172,11 @@ export default function Construct() {
                                     return (
                                         <tr key={spec.id} className="hover:bg-white/5 transition-colors">
                                             <td className="p-4 pl-6 font-mono text-xs text-primary">SPEC-{String(spec.id).padStart(3, '0')}</td>
+                                            <td className="p-4">
+                                                <span className="px-2 py-0.5 rounded text-xs border border-white/15 bg-white/5 text-text/80">{spec.design_mode || 'OEM'}</span>
+                                            </td>
                                             <td className="p-4 font-semibold text-text">{spec.furniture_type}</td>
+                                            <td className="p-4 text-xs font-mono text-text/60">{spec.reference_code || '—'}</td>
                                             <td className="p-4 text-sm text-text/80">{spec.primary_finish}</td>
                                             <td className="p-4 text-sm text-text/60">{spec.secondary_finish || '—'}</td>
                                             <td className="p-4">
@@ -144,6 +185,9 @@ export default function Construct() {
                                                         <span key={s} className="px-2 py-0.5 rounded-md text-xs bg-primary/10 text-primary border border-primary/20">{s}</span>
                                                     )) : <span className="text-text/30 text-xs">—</span>}
                                                 </div>
+                                            </td>
+                                            <td className="p-4 text-sm text-text/65 max-w-[280px] truncate" title={spec.customer_requirements || ''}>
+                                                {spec.customer_requirements || '—'}
                                             </td>
                                             <td className="p-4 pr-6 text-sm text-text/50">{new Date(spec.request_date).toLocaleDateString()}</td>
                                         </tr>
@@ -170,6 +214,23 @@ export default function Construct() {
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-5">
                                 {formError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3">{formError}</p>}
+
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-2 block">Specification Type *</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {DESIGN_MODES.map(mode => (
+                                            <button
+                                                key={mode}
+                                                type="button"
+                                                onClick={() => handleDesignModeChange(mode)}
+                                                className={`py-2 px-3 rounded-xl text-sm font-medium border transition-all ${form.designMode === mode ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30' : 'bg-white/5 text-text/70 border-white/10 hover:border-primary/40 hover:text-text'}`}
+                                            >
+                                                {mode}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-text/45 mt-2">{MODE_HINT[form.designMode]}</p>
+                                </div>
 
                                 {/* Furniture Type */}
                                 <div>
@@ -205,21 +266,45 @@ export default function Construct() {
                                     </div>
                                 </div>
 
-                                {/* Extra Finish toggle */}
-                                <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
-                                    <input type="checkbox" id="construct-extra" name="extraFinish" checked={form.extraFinish} onChange={handleChange}
-                                        className="w-4 h-4 accent-primary cursor-pointer" />
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label htmlFor="construct-extra" className="text-sm font-medium text-text cursor-pointer">Requires Extra Finish Treatment</label>
-                                        <p className="text-xs text-text/40 mt-0.5">Select if this piece needs additional process steps beyond standard finishing.</p>
+                                        <label className="text-sm font-medium text-text/70 mb-1.5 block">Customer Ref / SKU</label>
+                                        <input
+                                            type="text"
+                                            name="referenceCode"
+                                            value={form.referenceCode}
+                                            onChange={handleChange}
+                                            placeholder={form.designMode === 'Bespoke' ? 'e.g. CUST-JANE-01' : 'e.g. OEM-CHAIR-220'}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        />
                                     </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-text/70 mb-1.5 block">Extra Finish Process</label>
+                                        <div className="h-[46px] flex items-center gap-3 px-4 bg-white/5 border border-white/10 rounded-xl">
+                                            <input type="checkbox" id="construct-extra" name="extraFinish" checked={form.extraFinish} onChange={handleChange}
+                                                className="w-4 h-4 accent-primary cursor-pointer" />
+                                            <label htmlFor="construct-extra" className="text-sm text-text/80 cursor-pointer">Enable</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1.5 block">Customer Requirements</label>
+                                    <textarea
+                                        name="customerRequirements"
+                                        value={form.customerRequirements}
+                                        onChange={handleChange}
+                                        rows={3}
+                                        placeholder={form.designMode === 'Bespoke' ? 'Describe custom dimensions, style references, comfort preference, engraving, etc.' : 'Describe brand guidelines, packaging, compliance, or production constraints.'}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    />
                                 </div>
 
                                 {/* Special Finishes */}
                                 <div>
-                                    <label className="text-sm font-medium text-text/70 mb-2 block">Special Finishes</label>
+                                    <label className="text-sm font-medium text-text/70 mb-2 block">Special Requirements</label>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {SPECIAL_OPTIONS.map(opt => (
+                                        {(SPECIAL_OPTIONS_BY_MODE[form.designMode] || []).map(opt => (
                                             <label key={opt} className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${form.specialFinishes.includes(opt) ? 'bg-primary/10 border-primary/30 text-text' : 'bg-white/5 border-white/10 text-text/60 hover:border-white/30'}`}>
                                                 <input type="checkbox" name="specialFinishes" value={opt} checked={form.specialFinishes.includes(opt)} onChange={handleChange}
                                                     className="w-4 h-4 accent-primary" />
