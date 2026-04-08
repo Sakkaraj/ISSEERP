@@ -52,11 +52,11 @@ dist/assets/index-BV9QJsIl.js   288.14 kB │ gzip: 79.58 kB
 ## Important Notes
 
 - The repository currently has no automated Go or frontend test suites, so these results verify buildability rather than full functional correctness.
-- The code review still shows functional gaps that should be treated as open issues:
-  - Login returns a placeholder token rather than a real session token.
-  - QC submission checks `progress_percent >= 100` instead of the explicit production submission flag.
-  - User creation is not protected by a server-side Admin authorization check.
+- The previously reported backend issues have been addressed in the current code state:
+  - Login now returns a signed session token instead of a placeholder value.
+  - QC submission now checks the explicit `is_submitted` production flag.
+  - User creation now requires an Admin authorization token on the server side.
 
 ## Conclusion
 
-The application builds successfully on both server and client. The implementation is usable, but the remaining authentication and workflow gaps mean it does not yet fully satisfy every requirement in the documentation.
+The application builds successfully on both server and client. The previously flagged backend gaps have been fixed, so the current code base is in a better state for a clean demo and further functional verification.

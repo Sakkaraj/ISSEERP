@@ -45,10 +45,12 @@ function UserManagement() {
 
         setLoading(true);
         try {
+            const authToken = localStorage.getItem('auth_token');
             const response = await fetch('/api/users', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
                 },
                 body: JSON.stringify({ username, password, role }),
             });

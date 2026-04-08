@@ -232,7 +232,7 @@ func createQCRecord(w http.ResponseWriter, r *http.Request) {
 	if err := tx.QueryRow(`
 		SELECT COUNT(*)
 		FROM production_progress
-		WHERE order_id = ? AND progress_percent >= 100
+		WHERE order_id = ? AND is_submitted = TRUE
 	`, orderID).Scan(&productionSubmittedCount); err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return

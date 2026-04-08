@@ -1,13 +1,118 @@
 package handlers
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"os"
 	"server/db"
+	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+type authTokenClaims struct {
+	Username  string `json:"username"`
+	Role      string `json:"role"`
+	IssuedAt  int64  `json:"iat"`
+	ExpiresAt int64  `json:"exp"`
+}
+
+func authTokenSecret() []byte {
+	secret := os.Getenv("AUTH_TOKEN_SECRET")
+	if secret == "" {
+		secret = "boonsunclon-demo-secret"
+	}
+	return []byte(secret)
+}
+
+func generateAuthToken(username, role string) (string, error) {
+	now := time.Now().UTC()
+	claims := authTokenClaims{
+		Username:  username,
+		Role:      role,
+		IssuedAt:  now.Unix(),
+		ExpiresAt: now.Add(24 * time.Hour).Unix(),
+	}
+
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		return "", err
+	}
+
+	encodedPayload := base64.RawURLEncoding.EncodeToString(payload)
+	mac := hmac.New(sha256.New, authTokenSecret())
+	mac.Write([]byte(encodedPayload))
+	signature := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+
+	return encodedPayload + "." + signature, nil
+}
+
+func parseAuthToken(token string) (*authTokenClaims, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 2 {
+		return nil, errors.New("invalid token format")
+	}
+
+	payloadPart := parts[0]
+	signaturePart := parts[1]
+
+	mac := hmac.New(sha256.New, authTokenSecret())
+	mac.Write([]byte(payloadPart))
+	expectedSignature := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	if !hmac.Equal([]byte(signaturePart), []byte(expectedSignature)) {
+		return nil, errors.New("invalid token signature")
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(payloadPart)
+	if err != nil {
+		return nil, err
+	}
+
+	var claims authTokenClaims
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return nil, err
+	}
+
+	if time.Now().UTC().Unix() > claims.ExpiresAt {
+		return nil, errors.New("token expired")
+	}
+
+	return &claims, nil
+}
+
+func bearerTokenFromRequest(r *http.Request) string {
+	authorization := strings.TrimSpace(r.Header.Get("Authorization"))
+	if authorization == "" {
+		return ""
+	}
+	if !strings.HasPrefix(strings.ToLower(authorization), "bearer ") {
+		return ""
+	}
+	return strings.TrimSpace(authorization[len("Bearer "):])
+}
+
+func requireAdminRole(r *http.Request) error {
+	token := bearerTokenFromRequest(r)
+	if token == "" {
+		return errors.New("missing authorization token")
+	}
+
+	claims, err := parseAuthToken(token)
+	if err != nil {
+		return err
+	}
+	if claims.Role != "Admin" {
+		return fmt.Errorf("forbidden: admin role required")
+	}
+	return nil
+}
 
 type LoginRequest struct {
 	Username string `json:"username"`
@@ -76,13 +181,20 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Login Successful (you might want to issue a JWT token here in a real app)
+	token, err := generateAuthToken(username, role)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(LoginResponse{Success: false, Message: "Failed to create session token"})
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(LoginResponse{
 		Success:  true,
 		Message:  "Login successful",
-		Token:    "dummy_token_for_now",
+		Token:    token,
 		Role:     role,
 		Username: username,
 	})
@@ -92,6 +204,17 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if err := requireAdminRole(r); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		status := http.StatusUnauthorized
+		if strings.HasPrefix(err.Error(), "forbidden") {
+			status = http.StatusForbidden
+		}
+		w.WriteHeader(status)
+		json.NewEncoder(w).Encode(CreateUserResponse{Success: false, Message: err.Error()})
 		return
 	}
 

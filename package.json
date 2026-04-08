@@ -1,0 +1,13 @@
+{
+  "name": "boonsunclon-project",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "sh -c 'trap \"kill 0\" EXIT INT TERM; (cd server && go run .) & (cd client && npm run dev)'",
+    "dev:server": "cd server && go run .",
+    "dev:client": "cd client && npm run dev",
+    "build": "npm --prefix client run build",
+    "preview": "npm --prefix client run preview",
+    "lint": "npm --prefix client run lint"
+  }
+}
