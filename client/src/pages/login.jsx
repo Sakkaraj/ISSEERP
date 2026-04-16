@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './styles/login.css';
 
 function Login() {
     const [username, setUsername] = useState('');
@@ -58,16 +59,16 @@ function Login() {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center flex-1 w-full px-4 pt-16 pb-24 relative overflow-hidden">
+        <div className="login-page">
             {/* Ambient Background Glow Effects */}
-            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[100px] pointer-events-none"></div>
-            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-[100px] pointer-events-none"></div>
+            <div className="login-glow login-glow-primary"></div>
+            <div className="login-glow login-glow-secondary"></div>
 
-            <div className="w-full max-w-md relative z-10">
-                <div className="bg-white/5 dark:bg-black/20 backdrop-blur-xl border border-white/10 shadow-2xl rounded-3xl p-8 sm:p-10 transition-all duration-300 hover:shadow-primary/5">
+            <div className="login-shell">
+                <div className="login-card">
                     
                     <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-linear-to-tr from-primary to-blue-500 mb-6 shadow-lg shadow-primary/30">
+                        <div className="login-brand-icon">
                             <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
@@ -81,7 +82,7 @@ function Login() {
                     </div>
 
                     {error && (
-                        <div className="mb-6 rounded-xl bg-red-500/10 border border-red-500/30 p-4 transform animate-in slide-in-from-top-2 duration-300">
+                        <div className="login-error-box">
                             <div className="flex items-center space-x-3">
                                 <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -100,7 +101,7 @@ function Login() {
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     placeholder="Enter your username"
-                                    className="w-full bg-black/5 dark:bg-white/5 border border-white/10 dark:border-white/5 rounded-xl px-4 py-3.5 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-300"
+                                    className="login-field"
                                 />
                                 <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-text/40 group-focus-within:text-primary transition-colors">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -118,7 +119,7 @@ function Login() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••"
-                                    className="w-full bg-black/5 dark:bg-white/5 border border-white/10 dark:border-white/5 rounded-xl px-4 py-3.5 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-300"
+                                    className="login-field"
                                 />
                                 <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-text/40 group-focus-within:text-primary transition-colors">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -132,7 +133,7 @@ function Login() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="relative w-full overflow-hidden group rounded-xl bg-primary px-6 py-4 mt-2 font-semibold text-white shadow-[0_0_20px_rgba(var(--color-primary),0.3)] transition-all duration-300 hover:shadow-[0_0_30px_rgba(var(--color-primary),0.5)] hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+                            className="login-submit-btn group"
                         >
                             <div className="absolute inset-0 w-full h-full bg-white/20 scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-500 ease-out"></div>
                             

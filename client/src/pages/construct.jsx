@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import './styles/construct.css';
 
 const DESIGN_MODES = ['OEM', 'ODM', 'Bespoke'];
 const FURNITURE_TYPES = ['Chair', 'Table', 'Desk', 'Bed', 'Sofa', 'Bookshelf', 'Cabinet', 'Wardrobe'];
@@ -119,15 +120,15 @@ export default function Construct() {
     };
 
     return (
-        <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full">
+        <div className="construct-page">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div className="construct-header">
                 <div>
                     <h1 className="text-3xl font-bold text-text tracking-tight">Design Specifications</h1>
                     <p className="text-text/60 mt-1">Submit furniture construction specs — finish choices, special treatments, and material notes.</p>
                 </div>
                 <button id="btn-new-spec" onClick={() => setShowForm(true)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap">
+                    className="construct-new-btn">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
@@ -136,7 +137,7 @@ export default function Construct() {
             </div>
 
             {/* Submissions Table */}
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl overflow-hidden">
+            <div className="construct-card">
                 {loadingSubs ? (
                     <div className="p-16 text-center text-text/40 animate-pulse">Loading design specs…</div>
                 ) : submissions.length === 0 ? (
@@ -201,29 +202,29 @@ export default function Construct() {
 
             {/* New Spec Modal */}
             {showForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowForm(false)}>
-                    <div className="bg-[hsl(220,15%,12%)] border border-white/10 rounded-2xl shadow-2xl w-full max-w-xl p-8 relative max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowForm(false)} className="absolute top-4 right-4 text-text/40 hover:text-text transition-colors">
+                <div className="construct-modal-overlay" onClick={() => setShowForm(false)}>
+                    <div className="construct-modal-panel" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowForm(false)} className="construct-modal-close">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                         <h2 className="text-xl font-bold text-text mb-1">New Design Specification</h2>
                         <p className="text-text/50 text-sm mb-6">Define the furniture type, finish options, and any special treatments for this production request.</p>
 
                         {successMsg ? (
-                            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-green-400 font-medium text-sm text-center">{successMsg}</div>
+                            <div className="construct-success-box">{successMsg}</div>
                         ) : (
                             <form onSubmit={handleSubmit} className="space-y-5">
-                                {formError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3">{formError}</p>}
+                                {formError && <p className="construct-form-error">{formError}</p>}
 
                                 <div>
-                                    <label className="text-sm font-medium text-text/70 mb-2 block">Specification Type *</label>
+                                    <label className="construct-label">Specification Type *</label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {DESIGN_MODES.map(mode => (
                                             <button
                                                 key={mode}
                                                 type="button"
                                                 onClick={() => handleDesignModeChange(mode)}
-                                                className={`py-2 px-3 rounded-xl text-sm font-medium border transition-all ${form.designMode === mode ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30' : 'bg-white/5 text-text/70 border-white/10 hover:border-primary/40 hover:text-text'}`}
+                                                className={`construct-choice-btn ${form.designMode === mode ? 'construct-choice-btn-active' : 'construct-choice-btn-idle'}`}
                                             >
                                                 {mode}
                                             </button>
@@ -234,12 +235,12 @@ export default function Construct() {
 
                                 {/* Furniture Type */}
                                 <div>
-                                    <label className="text-sm font-medium text-text/70 mb-1.5 block">Furniture Type *</label>
+                                    <label className="construct-label">Furniture Type *</label>
                                     <div className="grid grid-cols-4 gap-2">
                                         {FURNITURE_TYPES.map(type => (
                                             <button key={type} type="button"
                                                 onClick={() => setForm(p => ({ ...p, furnitureType: type }))}
-                                                className={`py-2 px-3 rounded-xl text-sm font-medium border transition-all ${form.furnitureType === type ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30' : 'bg-white/5 text-text/70 border-white/10 hover:border-primary/40 hover:text-text'}`}>
+                                                className={`construct-choice-btn ${form.furnitureType === type ? 'construct-choice-btn-active' : 'construct-choice-btn-idle'}`}>
                                                 {type}
                                             </button>
                                         ))}
@@ -249,17 +250,17 @@ export default function Construct() {
                                 {/* Finishes */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-sm font-medium text-text/70 mb-1.5 block">Primary Finish *</label>
+                                        <label className="construct-label">Primary Finish *</label>
                                         <select id="construct-primary" name="primaryFinish" value={form.primaryFinish} onChange={handleChange}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                            className="construct-field">
                                             <option value="">Select finish…</option>
                                             {FINISH_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium text-text/70 mb-1.5 block">Secondary Finish</label>
+                                        <label className="construct-label">Secondary Finish</label>
                                         <select id="construct-secondary" name="secondaryFinish" value={form.secondaryFinish} onChange={handleChange}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                            className="construct-field">
                                             <option value="">None</option>
                                             {FINISH_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
                                         </select>
@@ -268,19 +269,19 @@ export default function Construct() {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-sm font-medium text-text/70 mb-1.5 block">Customer Ref / SKU</label>
+                                        <label className="construct-label">Customer Ref / SKU</label>
                                         <input
                                             type="text"
                                             name="referenceCode"
                                             value={form.referenceCode}
                                             onChange={handleChange}
                                             placeholder={form.designMode === 'Bespoke' ? 'e.g. CUST-JANE-01' : 'e.g. OEM-CHAIR-220'}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                            className="construct-field"
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-sm font-medium text-text/70 mb-1.5 block">Extra Finish Process</label>
-                                        <div className="h-[46px] flex items-center gap-3 px-4 bg-white/5 border border-white/10 rounded-xl">
+                                        <label className="construct-label">Extra Finish Process</label>
+                                        <div className="construct-checkbox-row">
                                             <input type="checkbox" id="construct-extra" name="extraFinish" checked={form.extraFinish} onChange={handleChange}
                                                 className="w-4 h-4 accent-primary cursor-pointer" />
                                             <label htmlFor="construct-extra" className="text-sm text-text/80 cursor-pointer">Enable</label>
@@ -289,23 +290,23 @@ export default function Construct() {
                                 </div>
 
                                 <div>
-                                    <label className="text-sm font-medium text-text/70 mb-1.5 block">Customer Requirements</label>
+                                    <label className="construct-label">Customer Requirements</label>
                                     <textarea
                                         name="customerRequirements"
                                         value={form.customerRequirements}
                                         onChange={handleChange}
                                         rows={3}
                                         placeholder={form.designMode === 'Bespoke' ? 'Describe custom dimensions, style references, comfort preference, engraving, etc.' : 'Describe brand guidelines, packaging, compliance, or production constraints.'}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        className="construct-field"
                                     />
                                 </div>
 
                                 {/* Special Finishes */}
                                 <div>
-                                    <label className="text-sm font-medium text-text/70 mb-2 block">Special Requirements</label>
+                                    <label className="construct-label">Special Requirements</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {(SPECIAL_OPTIONS_BY_MODE[form.designMode] || []).map(opt => (
-                                            <label key={opt} className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${form.specialFinishes.includes(opt) ? 'bg-primary/10 border-primary/30 text-text' : 'bg-white/5 border-white/10 text-text/60 hover:border-white/30'}`}>
+                                            <label key={opt} className={`construct-special-option ${form.specialFinishes.includes(opt) ? 'construct-special-option-active' : 'construct-special-option-idle'}`}>
                                                 <input type="checkbox" name="specialFinishes" value={opt} checked={form.specialFinishes.includes(opt)} onChange={handleChange}
                                                     className="w-4 h-4 accent-primary" />
                                                 <span className="text-xs font-medium">{opt}</span>
@@ -315,7 +316,7 @@ export default function Construct() {
                                 </div>
 
                                 <button id="construct-submit" type="submit" disabled={submitting}
-                                    className="w-full bg-primary text-white font-semibold py-3 rounded-xl shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60">
+                                    className="construct-submit-btn">
                                     {submitting ? 'Submitting…' : 'Submit Design Spec'}
                                 </button>
                             </form>

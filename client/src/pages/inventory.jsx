@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import './styles/inventory.css';
 
 function useFetch(url) {
     const [data, setData] = useState([]);
@@ -153,12 +154,12 @@ export default function Inventory() {
         }
     };
 
-    const getBarColor = (mat) => {
+    const getUtilizationClass = (mat) => {
         const denominator = mat.total_qty + mat.reserved_qty;
         const pct = denominator > 0 ? (mat.reserved_qty / denominator) * 100 : 0;
-        if (pct >= 80) return 'bg-red-500';
-        if (pct >= 50) return 'bg-yellow-500';
-        return 'bg-green-500';
+        if (pct >= 80) return 'inventory-utilization-high';
+        if (pct >= 50) return 'inventory-utilization-medium';
+        return 'inventory-utilization-low';
     };
 
     const totalReserved = reservations
@@ -255,9 +256,12 @@ export default function Inventory() {
                                             <td className={`p-4 text-center font-bold ${available < 20 ? 'text-red-400' : 'text-green-400'}`}>{available}</td>
                                             <td className="p-4 pr-6">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex-1 bg-white/10 rounded-full h-2">
-                                                        <div className={`h-2 rounded-full transition-all ${getBarColor(mat)}`} style={{ width: `${pct}%` }} />
-                                                    </div>
+                                                    <progress
+                                                        className={`inventory-utilization-bar ${getUtilizationClass(mat)}`}
+                                                        value={pct}
+                                                        max={100}
+                                                        aria-label={`Utilization for ${mat.material_name}`}
+                                                    />
                                                     <span className="text-xs text-text/50 w-8 text-right">{pct}%</span>
                                                 </div>
                                             </td>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import './styles/dashboard.css';
 
 function Dashboard() {
     const [stats, setStats] = useState([
@@ -67,19 +68,19 @@ function Dashboard() {
     ];
 
     return (
-        <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full">
-            <div className="mb-10">
+        <div className="dashboard-page">
+            <div className="dashboard-header">
                 <h1 className="text-3xl font-bold text-text tracking-tight">System Dashboard</h1>
                 <p className="text-text/60 mt-1">BoonSunClon ERP — Inventory, Orders & QC at a glance.</p>
             </div>
 
             {/* Quick Actions */}
-            <h2 className="text-xs font-bold text-text/40 uppercase tracking-widest mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+            <h2 className="dashboard-section-title">Quick Actions</h2>
+            <div className="dashboard-quick-grid">
                 {quickActions.map(({ to, label, desc, icon, color }) => (
                     <Link key={to} to={to}
-                        className={`group flex flex-col p-5 bg-white/5 border border-white/10 rounded-2xl transition-all duration-200 ${color}`}>
-                        <div className="p-2.5 bg-black/20 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
+                        className={`dashboard-quick-action group ${color}`}>
+                        <div className="dashboard-quick-icon-wrap">
                             <svg className="w-5 h-5 text-text transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
                             </svg>
@@ -91,13 +92,13 @@ function Dashboard() {
             </div>
 
             {/* Metrics Grid */}
-            <h2 className="text-xs font-bold text-text/40 uppercase tracking-widest mb-4">Live Metrics</h2>
+            <h2 className="dashboard-section-title">Live Metrics</h2>
             {statsError && (
                 <p className="text-xs text-red-400 mb-3">{statsError}</p>
             )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="dashboard-metric-grid">
                 {stats.map((stat, idx) => (
-                    <div key={idx} className={`bg-white/5 backdrop-blur-lg border ${stat.border} rounded-2xl p-6 shadow-xl`}>
+                    <div key={idx} className={`dashboard-metric-card ${stat.border}`}>
                         <div className="flex items-center justify-between">
                             <div className={`p-3 rounded-xl ${stat.bg}`}>
                                 <svg className={`w-6 h-6 ${stat.color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -112,7 +113,7 @@ function Dashboard() {
             </div>
 
             {/* System Status Banner */}
-            <div className="mt-8 bg-black/10 border border-white/5 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between">
+            <div className="dashboard-status-banner">
                 <div className="flex items-center">
                     <div className="relative flex h-3 w-3 mr-4">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -123,7 +124,7 @@ function Dashboard() {
                         <p className="text-sm text-text/60">Connected to <code className="font-mono text-primary">isse224</code> on MySQL via Go Backend.</p>
                     </div>
                 </div>
-                <div className="mt-4 sm:mt-0 text-text/40 text-sm font-mono bg-black/20 px-3 py-1 rounded">
+                <div className="dashboard-version-badge">
                     V.2.0-P2
                 </div>
             </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import './styles/qc.css';
 
 const AQL_LEVELS = ['AQL 0.65', 'AQL 1.0', 'AQL 1.5', 'AQL 2.5', 'AQL 4.0', 'AQL 6.5'];
 
@@ -117,15 +118,15 @@ export default function QCRegister() {
     const passRate = records.length ? Math.round((passCount / records.length) * 100) : 0;
 
     return (
-        <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full">
+        <div className="qc-page">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div className="qc-header">
                 <div>
                     <h1 className="text-3xl font-bold text-text tracking-tight">QC Inspection Register</h1>
                     <p className="text-text/60 mt-1">Log and review AQL quality control inspection results for all production orders.</p>
                 </div>
                 <button id="btn-log-inspection" onClick={() => setShowModal(true)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200">
+                    className="qc-primary-btn">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
@@ -134,7 +135,7 @@ export default function QCRegister() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="qc-summary-grid">
                 {[
                     { label: 'Total Inspections', value: records.length, color: 'text-primary', border: 'border-primary/20' },
                     { label: 'Passed', value: passCount, color: 'text-green-400', border: 'border-green-400/20' },
@@ -148,7 +149,7 @@ export default function QCRegister() {
                 ))}
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl overflow-hidden mb-8">
+            <div className="qc-card mb-8">
                 <div className="px-6 py-4 border-b border-white/10 bg-black/20">
                     <h2 className="text-lg font-bold text-text">QC Required Items</h2>
                     <p className="text-text/60 text-sm">Orders submitted from production that still need a QC Pass result.</p>
@@ -194,7 +195,7 @@ export default function QCRegister() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex gap-2 mb-6">
+            <div className="qc-filter-row">
                 {['All', 'Pass', 'Fail'].map(f => (
                     <button key={f} onClick={() => setFilterResult(f)}
                         className={`px-5 py-2 rounded-lg font-semibold text-sm transition-all ${filterResult === f ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-text/50 hover:text-text hover:bg-white/5'}`}>
@@ -204,7 +205,7 @@ export default function QCRegister() {
             </div>
 
             {/* Table */}
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl overflow-hidden">
+            <div className="qc-card">
                 {loading ? (
                     <div className="p-16 text-center text-text/40 animate-pulse">Loading records from database…</div>
                 ) : error ? (
@@ -257,9 +258,9 @@ export default function QCRegister() {
 
             {/* Log Inspection Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)}>
-                    <div className="bg-[hsl(220,15%,12%)] border border-white/10 rounded-2xl shadow-2xl w-full max-w-xl p-8 relative max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-text/40 hover:text-text transition-colors">
+                <div className="qc-modal-overlay" onClick={() => setShowModal(false)}>
+                    <div className="qc-modal-panel" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowModal(false)} className="qc-modal-close">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                         <h2 className="text-xl font-bold text-text mb-1">Log QC Inspection</h2>

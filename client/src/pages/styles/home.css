@@ -1,0 +1,25 @@
+@reference "../index.css";
+
+/* Home page styles */
+
+@layer components {
+	.home-page {
+		@apply flex-1 flex items-center justify-center p-8;
+	}
+
+	.home-hero {
+		@apply max-w-2xl w-full text-center;
+	}
+
+	.home-logo-wrap {
+		@apply inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-6;
+	}
+
+	.home-feature-grid {
+		@apply grid grid-cols-1 sm:grid-cols-3 gap-4 text-left;
+	}
+
+	.home-feature-link {
+		@apply block p-4 bg-white/5 border rounded-xl transition-all duration-200 hover:-translate-y-0.5;
+	}
+}

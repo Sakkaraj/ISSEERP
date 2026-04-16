@@ -1,0 +1,45 @@
+@reference "../index.css";
+
+/* Login page styles */
+
+@layer components {
+	.login-page {
+		@apply flex flex-col items-center justify-center flex-1 w-full px-4 pt-16 pb-24 relative overflow-hidden;
+	}
+
+	.login-glow {
+		@apply absolute w-96 h-96 rounded-full blur-[100px] pointer-events-none;
+	}
+
+	.login-glow-primary {
+		@apply top-1/4 left-1/4 bg-primary/20;
+	}
+
+	.login-glow-secondary {
+		@apply bottom-1/4 right-1/4 bg-blue-500/20;
+	}
+
+	.login-shell {
+		@apply w-full max-w-md relative z-10;
+	}
+
+	.login-card {
+		@apply bg-white/5 dark:bg-black/20 backdrop-blur-xl border border-white/10 shadow-2xl rounded-3xl p-8 sm:p-10 transition-all duration-300 hover:shadow-primary/5;
+	}
+
+	.login-brand-icon {
+		@apply inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-linear-to-tr from-primary to-blue-500 mb-6 shadow-lg shadow-primary/30;
+	}
+
+	.login-error-box {
+		@apply mb-6 rounded-xl bg-red-500/10 border border-red-500/30 p-4;
+	}
+
+	.login-field {
+		@apply w-full bg-black/5 dark:bg-white/5 border border-white/10 dark:border-white/5 rounded-xl px-4 py-3.5 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-300;
+	}
+
+	.login-submit-btn {
+		@apply relative w-full overflow-hidden rounded-xl bg-primary px-6 py-4 mt-2 font-semibold text-white shadow-[0_0_20px_rgba(var(--color-primary),0.3)] transition-all duration-300 hover:shadow-[0_0_30px_rgba(var(--color-primary),0.5)] hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none;
+	}
+}

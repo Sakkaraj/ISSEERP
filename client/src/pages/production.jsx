@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import './styles/production.css';
 
 const PRODUCTION_CHECKLIST = [
     'Material preparation completed',
@@ -223,9 +224,12 @@ export default function Production() {
                                         <td className="p-4 font-semibold text-text">{order.customer_name}</td>
                                         <td className="p-4 text-text/70">{order.assigned_to}</td>
                                         <td className="p-4 min-w-[220px]">
-                                            <div className="w-full bg-black/30 h-2 rounded-full overflow-hidden">
-                                                <div className="h-full bg-primary" style={{ width: `${order.progress_percent || 0}%` }} />
-                                            </div>
+                                            <progress
+                                                className="production-progress-bar"
+                                                value={order.progress_percent || 0}
+                                                max={100}
+                                                aria-label={`Production progress for order ${order.id}`}
+                                            />
                                             <p className="text-xs text-text/60 mt-1">{order.progress_percent || 0}%</p>
                                         </td>
                                         <td className="p-4 text-center">
@@ -293,7 +297,12 @@ export default function Production() {
                                     ))}
                                 </div>
                                 <div className="w-full bg-black/30 h-2 rounded-full overflow-hidden">
-                                    <div className="h-full bg-primary" style={{ width: `${progressPercent || 0}%` }} />
+                                    <progress
+                                        className="production-progress-bar"
+                                        value={progressPercent || 0}
+                                        max={100}
+                                        aria-label={`Checklist completion for order ${selectedOrder.id}`}
+                                    />
                                 </div>
                                 <p className="text-xs text-text/60">{checkedSteps.length}/{PRODUCTION_CHECKLIST.length} checklist steps completed ({progressPercent}%)</p>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import './styles/orderdetail.css';
 
 const STATUS_STYLES = {
     'Completed':   'bg-green-500/10 text-green-400 border-green-500/20',
@@ -228,15 +229,15 @@ export default function OrderDetail() {
     };
 
     return (
-        <div className="p-6 sm:p-10 max-w-7xl mx-auto w-full">
+        <div className="orderdetail-page">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div className="orderdetail-header">
                 <div>
                     <h1 className="text-3xl font-bold text-text tracking-tight">Order Management</h1>
                     <p className="text-text/60 mt-1">Review and manage all OEM, ODM, and Bespoke furniture orders.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-black/20 rounded-lg p-1 border border-white/5">
+                    <div className="orderdetail-search-wrap">
                         <input type="text" placeholder="Search orders…" value={search} onChange={handleSearch}
                             className="bg-transparent border-none text-sm px-4 py-2 text-text placeholder:text-text/40 focus:outline-none w-48" />
                         <span className="px-3 text-text/40">
@@ -246,7 +247,7 @@ export default function OrderDetail() {
                         </span>
                     </div>
                     <button id="btn-new-order" onClick={() => setShowModal(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap">
+                        className="orderdetail-primary-btn">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
@@ -256,7 +257,7 @@ export default function OrderDetail() {
             </div>
 
             {/* Table Card */}
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl overflow-hidden">
+            <div className="orderdetail-card">
                 {loading ? (
                     <div className="p-16 text-center text-text/40 animate-pulse">Loading orders from database…</div>
                 ) : error ? (
@@ -312,7 +313,7 @@ export default function OrderDetail() {
                 )}
 
                 {/* Pagination */}
-                <div className="p-4 border-t border-white/10 flex items-center justify-between text-sm text-text/60 bg-black/10">
+                <div className="orderdetail-pagination">
                     <div className="flex items-center gap-4">
                         <span>
                             Showing <b className="text-text">{filtered.length === 0 ? 0 : (safePage - 1) * itemsPerPage + 1}</b>–
@@ -364,8 +365,7 @@ export default function OrderDetail() {
                     {/* Backdrop */}
                     <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedOrder(null)} />
                     {/* Panel */}
-                    <div className="fixed right-0 top-0 h-full z-50 w-full max-w-md bg-[hsl(220,15%,10%)] border-l border-white/10 shadow-2xl flex flex-col"
-                        style={{ animation: 'slideIn 0.2s ease-out' }}>
+                    <div className="fixed right-0 top-0 h-full z-50 w-full max-w-md bg-[hsl(220,15%,10%)] border-l border-white/10 shadow-2xl flex flex-col orderdetail-slide-in">
                         {/* Panel header */}
                         <div className="p-6 border-b border-white/10 flex items-center justify-between">
                             <div>
@@ -513,9 +513,9 @@ export default function OrderDetail() {
 
             {/* New Order Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)}>
-                    <div className="bg-[hsl(220,15%,12%)] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-text/40 hover:text-text transition-colors">
+                <div className="orderdetail-modal-overlay" onClick={() => setShowModal(false)}>
+                    <div className="orderdetail-modal-panel" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowModal(false)} className="orderdetail-modal-close">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                         <h2 className="text-xl font-bold text-text mb-1">Create New Order</h2>
@@ -588,13 +588,6 @@ export default function OrderDetail() {
                     </div>
                 </div>
             )}
-
-            <style>{`
-                @keyframes slideIn {
-                    from { transform: translateX(100%); }
-                    to { transform: translateX(0); }
-                }
-            `}</style>
         </div>
     );
 }

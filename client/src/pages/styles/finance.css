@@ -1,0 +1,109 @@
+@reference "../index.css";
+
+/* Finance page styles */
+
+@layer components {
+	.finance-page {
+		@apply p-6 sm:p-10 max-w-7xl mx-auto w-full;
+	}
+
+	.finance-header {
+		@apply flex items-center justify-between mb-8;
+	}
+
+	.finance-export-btn {
+		@apply hidden sm:flex items-center px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors;
+	}
+
+	.finance-message {
+		@apply mb-6 text-sm text-text/60;
+	}
+
+	.finance-message-error {
+		@apply text-red-400;
+	}
+
+	.finance-kpi-grid {
+		@apply grid grid-cols-1 md:grid-cols-3 gap-6 mb-10;
+	}
+
+	.finance-kpi-card {
+		@apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden transition-colors;
+	}
+
+	.finance-kpi-card-income {
+		@apply hover:border-green-500/30;
+	}
+
+	.finance-kpi-card-expense {
+		@apply hover:border-red-500/30;
+	}
+
+	.finance-kpi-card-profit {
+		@apply hover:border-primary/30;
+	}
+
+	.finance-kpi-glow {
+		@apply absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl transition-all;
+	}
+
+	.finance-kpi-glow-income {
+		@apply bg-green-500/20 group-hover:bg-green-500/30;
+	}
+
+	.finance-kpi-glow-expense {
+		@apply bg-red-500/20 group-hover:bg-red-500/30;
+	}
+
+	.finance-kpi-glow-profit {
+		@apply bg-primary/20 group-hover:bg-primary/30;
+	}
+
+	.finance-kpi-icon {
+		@apply p-3 rounded-xl;
+	}
+
+	.finance-kpi-icon-income {
+		@apply bg-green-500/10;
+	}
+
+	.finance-kpi-icon-expense {
+		@apply bg-red-500/10;
+	}
+
+	.finance-kpi-icon-profit {
+		@apply bg-primary/10;
+	}
+
+	.finance-list-grid {
+		@apply grid grid-cols-1 lg:grid-cols-2 gap-8;
+	}
+
+	.finance-list-card {
+		@apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-xl;
+	}
+
+	.finance-list-header {
+		@apply p-6 border-b border-white/10 flex justify-between items-center bg-black/10;
+	}
+
+	.finance-list-badge {
+		@apply text-xs font-semibold px-2 py-1 rounded-full uppercase tracking-wider;
+	}
+
+	.finance-list-badge-income {
+		@apply text-green-500 bg-green-500/10;
+	}
+
+	.finance-list-badge-expense {
+		@apply text-red-500 bg-red-500/10;
+	}
+
+	.finance-list-row {
+		@apply p-6 hover:bg-white/5 transition-colors flex items-center justify-between;
+	}
+
+	.finance-list-row-main {
+		@apply flex flex-col;
+	}
+}

@@ -1,0 +1,81 @@
+@reference "../index.css";
+
+/* Construct page styles */
+
+@layer components {
+	.construct-page {
+		@apply p-6 sm:p-10 max-w-7xl mx-auto w-full;
+	}
+
+	.construct-header {
+		@apply flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4;
+	}
+
+	.construct-new-btn {
+		@apply flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 whitespace-nowrap;
+	}
+
+	.construct-card {
+		@apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl overflow-hidden;
+	}
+
+	.construct-modal-overlay {
+		@apply fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm;
+	}
+
+	.construct-modal-panel {
+		@apply bg-[hsl(220,15%,12%)] border border-white/10 rounded-2xl shadow-2xl w-full max-w-xl p-8 relative max-h-[90vh] overflow-y-auto;
+	}
+
+	.construct-modal-close {
+		@apply absolute top-4 right-4 text-text/40 hover:text-text transition-colors;
+	}
+
+	.construct-success-box {
+		@apply bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-green-400 font-medium text-sm text-center;
+	}
+
+	.construct-form-error {
+		@apply text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3;
+	}
+
+	.construct-label {
+		@apply text-sm font-medium text-text/70 mb-1.5 block;
+	}
+
+	.construct-field {
+		@apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50;
+	}
+
+	.construct-choice-btn {
+		@apply py-2 px-3 rounded-xl text-sm font-medium border transition-all;
+	}
+
+	.construct-choice-btn-active {
+		@apply bg-primary text-white border-primary shadow-lg shadow-primary/30;
+	}
+
+	.construct-choice-btn-idle {
+		@apply bg-white/5 text-text/70 border-white/10 hover:border-primary/40 hover:text-text;
+	}
+
+	.construct-checkbox-row {
+		@apply h-[46px] flex items-center gap-3 px-4 bg-white/5 border border-white/10 rounded-xl;
+	}
+
+	.construct-special-option {
+		@apply flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all;
+	}
+
+	.construct-special-option-active {
+		@apply bg-primary/10 border-primary/30 text-text;
+	}
+
+	.construct-special-option-idle {
+		@apply bg-white/5 border-white/10 text-text/60 hover:border-white/30;
+	}
+
+	.construct-submit-btn {
+		@apply w-full bg-primary text-white font-semibold py-3 rounded-xl shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60;
+	}
+}
