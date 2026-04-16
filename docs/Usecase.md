@@ -36,22 +36,22 @@ Inventory Management
   UC-012 View Material Reservations
   UC-013 Add New Inventory Material
   UC-014 Restock Inventory Material
-  UC-029 Tag Material as Usable for Finishing
+  UC-015 Tag Material as Usable for Finishing
 
 Production staff can also browse inventory materials for finishing lookup; the tagged material list is the source for design-spec finish selection.
 
 Quality Control
-  UC-015 View QC Records
-  UC-016 Submit QC Inspection Record
-  UC-017 Filter QC Results
-  UC-018 Lookup Order for QC Autofill
+  UC-016 View QC Records
+  UC-017 Submit QC Inspection Record
+  UC-018 Filter QC Results
+  UC-019 Lookup Order for QC Autofill
 
 Design & Specifications
-  UC-022 View Design Specifications
-  UC-023 Create Design Specifications
-  UC-024 Upload Partner Design
-  UC-025 Approve Design Specifications
-  UC-030 Filter Finish Options by Tagged Materials
+  UC-023 View Design Specifications
+  UC-024 Create Design Specifications
+  UC-025 Upload Partner Design
+  UC-026 Approve Design Specifications
+  UC-027 Filter Finish Options by Tagged Materials
 
 Logistics Dispatch
   UC-031 View Logistics Dispatch Dashboard
@@ -63,14 +63,14 @@ Logistics Dispatch
   UC-037 Exclude Closed Shipments from Planning Queue
 
 Production Management
-  UC-026 Update Production Progress
-  UC-027 Submit Production Progress
+  UC-028 Update Production Progress
+  UC-029 Submit Production Progress
 
 Other Features
-  UC-019 Navigate System Page
-  UC-020 Toggle Theme Mode
-  UC-021 View Dashboard and Finance
-  UC-028 Assign/Add New User
+  UC-020 Navigate System Page
+  UC-021 Toggle Theme Mode
+  UC-022 View Dashboard and Finance
+  UC-030 Assign/Add New User
 ```
 
 ## Use Case Catalog
