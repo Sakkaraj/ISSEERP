@@ -52,6 +52,9 @@ This document provides a text-based functional decomposition map that you can re
 3.4 Reserve Material for Order
 3.5 Validate Reservation Against Available Stock
 3.6 View Reservation Records by Material/Order
+3.7 Tag Material for Finishing Eligibility
+3.8 Record Inventory Opening Stock Expense
+3.9 Record Inventory Restock Expense
 
 ### 4.0 Quality Control Management
 4.1 View QC Records
@@ -74,6 +77,7 @@ This document provides a text-based functional decomposition map that you can re
 6.3 Manage Specification Metadata and Link to Order
 6.4 Store Construction-Related Documentation
 6.5 Track Implementation Status of Specification Features
+6.6 Load and Validate Finish Options from Tagged Inventory Materials
 
 ### 7.0 Reporting, Finance & Administration
 7.1 View Dashboard KPIs
@@ -81,6 +85,11 @@ This document provides a text-based functional decomposition map that you can re
 7.3 Aggregate Module Data for Reporting Cards
 7.4 Navigate Pages and Shared UI Utilities (Theme and Settings)
 7.5 Basic User Management View and Assignment Support
+7.6 View Logistics Dispatch Dashboard
+7.7 Create Shipment Plans for Completed Orders
+7.8 Update Shipment Status and Dispatch Metadata
+7.9 Track Ready-for-Dispatch Completed Orders
+7.10 Exclude Closed Shipments from Planning Queue
 
 ---
 
@@ -122,6 +131,34 @@ The following Level 3 detail is provided for the three selected narrative use ca
 4.4.2 Return Success/Error Response
 4.1.1 Refresh QC Record List for User Feedback
 
+### D) UC-032 Create Shipment for Completed Order (from 7.7)
+7.7.1 Load Ready Completed Orders
+7.7.2 Select Target Order for Dispatch
+7.7.3 Capture Destination and Dispatch Metadata
+7.7.4 Validate Required Shipment Fields
+7.7.5 Validate Order Is Completed and Dispatch-Eligible
+7.7.6 Prevent Duplicate Active Shipment for Same Order
+7.7.7 Generate Shipment Code
+7.7.8 Persist Shipment Record
+7.7.9 Return Success/Error and Refresh Shipment Register
+
+### E) UC-035 / UC-036 Inventory Expense Recording (from 3.8 and 3.9)
+3.8.1 Capture Unit Cost for Opening Stock
+3.8.2 Validate Positive Quantity and Unit Cost
+3.8.3 Persist Inventory Material Record
+3.8.4 Create Expense Entry for Opening Stock
+3.9.1 Capture Restock Quantity and Unit Cost
+3.9.2 Validate Positive Restock Inputs
+3.9.3 Update Material Quantity
+3.9.4 Create Expense Entry for Restock Purchase
+3.9.5 Return Success/Error and Refresh Inventory/Finance Views
+
+### F) UC-037 Exclude Closed Shipments from Planning Queue (from 7.10)
+7.10.1 Load Completed Orders for Dispatch Planning
+7.10.2 Check Existing Shipment Status per Order
+7.10.3 Filter Out Orders with Delivered/Returned/Active Shipments
+7.10.4 Return Only Eligible Ready Orders
+
 ---
 
 ## Text Map for Redrawing
@@ -142,4 +179,7 @@ Selected use case path map:
 `2.0 -> 2.3 -> UC-004`
 `3.0 -> 3.4 + 3.5 -> UC-011`
 `4.0 -> 4.2 + 4.3 + 4.4 + 4.5 -> UC-016`
+`7.0 -> 7.7 -> UC-032`
+`3.0 -> 3.8 + 3.9 -> UC-035 / UC-036`
+`7.0 -> 7.10 -> UC-037`
 

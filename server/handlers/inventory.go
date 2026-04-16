@@ -13,13 +13,14 @@ import (
 // ── Models ──────────────────────────────────────────────────────────────────
 
 type InventoryMaterial struct {
-	ID           int       `json:"id"`
-	MaterialName string    `json:"material_name"`
-	Unit         string    `json:"unit"`
-	TotalQty     int       `json:"total_qty"`
-	ReservedQty  int       `json:"reserved_qty"`
-	Location     string    `json:"location"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID                 int       `json:"id"`
+	MaterialName       string    `json:"material_name"`
+	Unit               string    `json:"unit"`
+	TotalQty           int       `json:"total_qty"`
+	ReservedQty        int       `json:"reserved_qty"`
+	UsableForFinishing bool      `json:"usable_for_finishing"`
+	Location           string    `json:"location"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 type MaterialReservation struct {
@@ -43,15 +44,18 @@ type ReserveMaterialRequest struct {
 }
 
 type CreateMaterialRequest struct {
-	MaterialName string `json:"material_name"`
-	Unit         string `json:"unit"`
-	TotalQty     int    `json:"total_qty"`
-	Location     string `json:"location"`
+	MaterialName       string  `json:"material_name"`
+	Unit               string  `json:"unit"`
+	TotalQty           int     `json:"total_qty"`
+	UnitCost           float64 `json:"unit_cost"`
+	UsableForFinishing bool    `json:"usable_for_finishing"`
+	Location           string  `json:"location"`
 }
 
 type RestockMaterialRequest struct {
-	MaterialID int `json:"material_id"`
-	AddedQty   int `json:"added_qty"`
+	MaterialID int     `json:"material_id"`
+	AddedQty   int     `json:"added_qty"`
+	UnitCost   float64 `json:"unit_cost"`
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -71,7 +75,7 @@ func MaterialsHandler(w http.ResponseWriter, r *http.Request) {
 
 func getMaterials(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.DB.Query(`
-		SELECT id, material_name, unit, total_qty, reserved_qty, location, created_at
+		SELECT id, material_name, unit, total_qty, reserved_qty, COALESCE(usable_for_finishing, 0), location, created_at
 		FROM inventory_materials
 		ORDER BY material_name ASC
 	`)
@@ -84,10 +88,12 @@ func getMaterials(w http.ResponseWriter, r *http.Request) {
 	var materials []InventoryMaterial
 	for rows.Next() {
 		var m InventoryMaterial
+		var usableForFinishing int
 		if err := rows.Scan(&m.ID, &m.MaterialName, &m.Unit, &m.TotalQty,
-			&m.ReservedQty, &m.Location, &m.CreatedAt); err != nil {
+			&m.ReservedQty, &usableForFinishing, &m.Location, &m.CreatedAt); err != nil {
 			continue
 		}
+		m.UsableForFinishing = usableForFinishing == 1
 		materials = append(materials, m)
 	}
 	if materials == nil {
@@ -107,6 +113,10 @@ func createMaterial(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "material_name is required and total_qty must be >= 0", http.StatusBadRequest)
 		return
 	}
+	if req.TotalQty > 0 && req.UnitCost <= 0 {
+		jsonError(w, "unit_cost must be greater than 0 when total_qty is greater than 0", http.StatusBadRequest)
+		return
+	}
 
 	if req.Unit == "" {
 		req.Unit = "units"
@@ -116,9 +126,9 @@ func createMaterial(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := db.DB.Exec(
-		`INSERT INTO inventory_materials (material_name, unit, total_qty, reserved_qty, location)
-		 VALUES (?, ?, ?, 0, ?)`,
-		req.MaterialName, req.Unit, req.TotalQty, req.Location,
+		`INSERT INTO inventory_materials (material_name, unit, total_qty, reserved_qty, usable_for_finishing, location)
+		 VALUES (?, ?, ?, 0, ?, ?)`,
+		req.MaterialName, req.Unit, req.TotalQty, req.UsableForFinishing, req.Location,
 	)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
@@ -126,6 +136,19 @@ func createMaterial(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id, _ := result.LastInsertId()
+
+	if req.TotalQty > 0 {
+		totalCost := float64(req.TotalQty) * req.UnitCost
+		if _, err := db.DB.Exec(
+			`INSERT INTO supplies (item_name, cost, category)
+			 VALUES (?, ?, ?)`,
+			req.MaterialName+" (Initial Stock)", totalCost, "Inventory",
+		); err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	writeJSON(w, http.StatusCreated, map[string]interface{}{"message": "Material created", "id": id})
 }
 
@@ -138,6 +161,20 @@ func restockMaterial(w http.ResponseWriter, r *http.Request) {
 
 	if req.MaterialID <= 0 || req.AddedQty <= 0 {
 		jsonError(w, "material_id and added_qty must be greater than 0", http.StatusBadRequest)
+		return
+	}
+	if req.UnitCost <= 0 {
+		jsonError(w, "unit_cost must be greater than 0", http.StatusBadRequest)
+		return
+	}
+
+	var materialName string
+	if err := db.DB.QueryRow(`SELECT material_name FROM inventory_materials WHERE id = ?`, req.MaterialID).Scan(&materialName); err != nil {
+		if err == sql.ErrNoRows {
+			jsonError(w, "Material not found", http.StatusNotFound)
+			return
+		}
+		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -160,7 +197,17 @@ func restockMaterial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{"message": "Material restocked", "material_id": req.MaterialID, "added_qty": req.AddedQty})
+	totalCost := float64(req.AddedQty) * req.UnitCost
+	if _, err := db.DB.Exec(
+		`INSERT INTO supplies (item_name, cost, category)
+		 VALUES (?, ?, ?)`,
+		materialName+" (Restock)", totalCost, "Inventory",
+	); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"message": "Material restocked", "material_id": req.MaterialID, "added_qty": req.AddedQty, "total_cost": totalCost})
 }
 
 func ReservationsHandler(w http.ResponseWriter, r *http.Request) {

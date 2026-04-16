@@ -23,6 +23,7 @@ function Home() {
                         { to: '/orderdetail', label: 'Order Management', desc: 'Track OEM, ODM & bespoke orders', color: 'border-primary/20 hover:border-primary/50' },
                         { to: '/inventory',   label: 'Material Inventory', desc: 'Reserve timber for production',   color: 'border-yellow-500/20 hover:border-yellow-500/50' },
                         { to: '/qc',          label: 'QC Register',       desc: 'Log AQL inspection results',      color: 'border-green-500/20 hover:border-green-500/50' },
+                        { to: '/logistics',   label: 'Logistics Dispatch', desc: 'Plan internal deliveries and shipment status', color: 'border-cyan-500/20 hover:border-cyan-500/50' },
                     ].map(({ to, label, desc, color }) => (
                         <Link key={to} to={to} className={`home-feature-link ${color}`}>
                             <p className="font-semibold text-text text-sm">{label}</p>

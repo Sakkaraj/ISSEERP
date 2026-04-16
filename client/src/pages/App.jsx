@@ -13,6 +13,7 @@ import Construct from "./construct";
 import Login from "./login";
 import UserManagement from "./usermanagement";
 import Production from "./production";
+import Logistics from "./logistics";
 import RoleBasedRoute from "../components/RoleBasedRoute";
 
 /**
@@ -24,6 +25,7 @@ const ROLE_PERMISSIONS = {
   dashboard: ['Admin', 'SaleStaff'],
   orderdetail: ['Admin', 'SaleStaff'],
   inventory: ['Admin', 'LogisticsStaff'],
+    logistics: ['Admin', 'LogisticsStaff'],
   qc: ['Admin', 'QualityController'],
     production: ['Admin', 'Production'],
   construct: ['Admin'],
@@ -40,6 +42,7 @@ const NAV_LINKS = [
     { to: '/dashboard',   label: 'Dashboard',   icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z', roles: ROLE_PERMISSIONS.dashboard },
     { to: '/orderdetail', label: 'Orders',       icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', roles: ROLE_PERMISSIONS.orderdetail },
     { to: '/inventory',   label: 'Inventory',    icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', roles: ROLE_PERMISSIONS.inventory },
+    { to: '/logistics',   label: 'Logistics',    icon: 'M3 13h4l3 4h6l3-4h2M5 13l1.5-5h11L19 13M7 8V5h10v3', roles: ROLE_PERMISSIONS.logistics },
     { to: '/qc',          label: 'QC Register',  icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', roles: ROLE_PERMISSIONS.qc },
     { to: '/production',  label: 'Production',   icon: 'M3 7h18M5 7l2 12h10l2-12M10 11v4m4-4v4', roles: ROLE_PERMISSIONS.production },
     { to: '/construct',   label: 'Design Specs', icon: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z', roles: ROLE_PERMISSIONS.construct },
@@ -152,6 +155,7 @@ function App() {
                     <Route path="/dashboard"   element={<RequireAuth><RoleBasedRoute requiredRoles={ROLE_PERMISSIONS.dashboard}><Dashboard /></RoleBasedRoute></RequireAuth>} />
                     <Route path="/orderdetail" element={<RequireAuth><RoleBasedRoute requiredRoles={ROLE_PERMISSIONS.orderdetail}><OrderDetail /></RoleBasedRoute></RequireAuth>} />
                     <Route path="/inventory"   element={<RequireAuth><RoleBasedRoute requiredRoles={ROLE_PERMISSIONS.inventory}><Inventory /></RoleBasedRoute></RequireAuth>} />
+                    <Route path="/logistics"   element={<RequireAuth><RoleBasedRoute requiredRoles={ROLE_PERMISSIONS.logistics}><Logistics /></RoleBasedRoute></RequireAuth>} />
                     <Route path="/qc"          element={<RequireAuth><RoleBasedRoute requiredRoles={ROLE_PERMISSIONS.qc}><QCRegister /></RoleBasedRoute></RequireAuth>} />
                     <Route path="/production"  element={<RequireAuth><RoleBasedRoute requiredRoles={ROLE_PERMISSIONS.production}><Production /></RoleBasedRoute></RequireAuth>} />
                     <Route path="/construct"   element={<RequireAuth><RoleBasedRoute requiredRoles={ROLE_PERMISSIONS.construct}><Construct /></RoleBasedRoute></RequireAuth>} />

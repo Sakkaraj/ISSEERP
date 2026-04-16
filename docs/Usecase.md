@@ -3,7 +3,7 @@
 **Project:** BoonSunClon ERP Portal  
 **System:** Internal Information System for Furniture Manufacturing  
 **Date:** April 2026  
-**Version:** 1.0
+**Version:** 1.1
 
 ---
 
@@ -14,7 +14,7 @@
 - **System**: Backend services, database, and client-side route protection
 
 ### System Boundary
-The diagram below is the source of truth for the current use-case model. It contains 28 use cases across 7 modules.
+The diagram below is the source of truth for the current use-case model. It contains 37 use cases across 8 modules.
 
 ```
 Login & Authentication
@@ -36,6 +36,9 @@ Inventory Management
   UC-012 View Material Reservations
   UC-013 Add New Inventory Material
   UC-014 Restock Inventory Material
+  UC-029 Tag Material as Usable for Finishing
+
+Production staff can also browse inventory materials for finishing lookup; the tagged material list is the source for design-spec finish selection.
 
 Quality Control
   UC-015 View QC Records
@@ -48,6 +51,16 @@ Design & Specifications
   UC-023 Create Design Specifications
   UC-024 Upload Partner Design
   UC-025 Approve Design Specifications
+  UC-030 Filter Finish Options by Tagged Materials
+
+Logistics Dispatch
+  UC-031 View Logistics Dispatch Dashboard
+  UC-032 Create Shipment for Completed Order
+  UC-033 Update Shipment Status and Dispatch Details
+  UC-034 View Ready Orders for Dispatch
+  UC-035 Record Inventory Opening Stock Expense
+  UC-036 Record Inventory Restock Expense
+  UC-037 Exclude Closed Shipments from Planning Queue
 
 Production Management
   UC-026 Update Production Progress
@@ -92,10 +105,25 @@ Other Features
 | UC-026 | Production Management | Update Production Progress | Implemented | [client/src/pages/production.jsx](../../client/src/pages/production.jsx), [server/handlers/production.go](../../server/handlers/production.go) |
 | UC-027 | Production Management | Submit Production Progress | Implemented | [client/src/pages/production.jsx](../../client/src/pages/production.jsx), [server/handlers/production.go](../../server/handlers/production.go), [server/handlers/orders.go](../../server/handlers/orders.go) |
 | UC-028 | Other Features | Assign/Add New User | Partial | [client/src/pages/usermanagement.jsx](../../client/src/pages/usermanagement.jsx), [server/handlers/auth.go](../../server/handlers/auth.go) |
+| UC-029 | Inventory Management | Tag Material as Usable for Finishing | Implemented | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go), [server/db/schema.sql](../../server/db/schema.sql) |
+| UC-030 | Design & Specifications | Filter Finish Options by Tagged Materials | Implemented | [client/src/pages/construct.jsx](../../client/src/pages/construct.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go) |
+| UC-031 | Logistics Dispatch | View Logistics Dispatch Dashboard | Implemented | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go) |
+| UC-032 | Logistics Dispatch | Create Shipment for Completed Order | Implemented | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go), [server/db/schema.sql](../../server/db/schema.sql) |
+| UC-033 | Logistics Dispatch | Update Shipment Status and Dispatch Details | Implemented | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go) |
+| UC-034 | Logistics Dispatch | View Ready Orders for Dispatch | Implemented | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go), [server/handlers/orders.go](../../server/handlers/orders.go) |
+| UC-035 | Inventory Management | Record Inventory Opening Stock Expense | Implemented | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go), [server/handlers/dashboard.go](../../server/handlers/dashboard.go) |
+| UC-036 | Inventory Management | Record Inventory Restock Expense | Implemented | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go), [server/handlers/dashboard.go](../../server/handlers/dashboard.go) |
+| UC-037 | Logistics Dispatch | Exclude Closed Shipments from Planning Queue | Implemented | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go) |
 
 ## Coverage Notes
 
 - The current codebase implements the core order, inventory, QC, production, dashboard, finance, and login flows shown in the diagram.
+- Inventory materials now include a usable-for-finishing tag, and the design-spec finish selector only lists tagged materials.
+- Production staff can view inventory materials for finishing lookup, even though inventory write operations remain handled through the inventory workflow.
+- Logistics dispatch flows are implemented through the logistics dashboard, including shipment creation for completed orders and shipment status progression tracking.
+- Inventory opening stock and restock actions now generate expense entries so finance totals include material acquisition costs.
+- The dispatch planning queue excludes orders that already have delivered or returned shipments.
+- Inventory route-level access is currently limited to Admin and Logistics Staff in frontend permissions; production workflow remains available via the Production module.
 - UC-024 and UC-025 from the diagram are not implemented in the current repository.
 - UC-009 exists only as a reservation entry point; the implemented flow is exposed through the inventory reservation forms and endpoints.
 - UC-028 is partially implemented because user creation exists, but there is no server-side authorization check enforcing Admin-only access.
@@ -123,10 +151,37 @@ Other Features
 - Backend checks available stock, rejects over-allocation, and updates reserved quantity on success.
 - The reservation is stored and visible in the reservation list.
 
+### UC-029 and UC-030 Finishing Material Eligibility and Selection
+
+- Logistics or admin users create materials with a usable-for-finishing checkbox flag.
+- Inventory list exposes each material with a finishing eligibility tag.
+- Design specification form loads finish dropdown options from only tagged materials.
+- Primary and secondary finish validation rejects values not present in the tagged material set.
+
 ### UC-016 Submit QC Inspection Record
 
 - QC staff submit order-linked inspection data with AQL, result, defect count, and inspector name.
 - Backend stores the record and updates the linked order status according to the QC result.
+
+### UC-032 Create Shipment for Completed Order
+
+- Logistics staff opens the dispatch dashboard and selects a completed order from Ready Orders.
+- User provides destination, vehicle, driver, dispatch method, priority, and optional schedule/notes.
+- Backend validates order completion and ensures no active shipment already exists.
+- Shipment record is created with generated shipment code and appears in the shipment register.
+
+### UC-035 and UC-036 Record Inventory Expense
+
+- User enters a unit cost when adding a new inventory material with opening stock.
+- User enters a unit cost when restocking an existing material.
+- Backend writes a corresponding expense entry to the supplies table for finance reporting.
+- Finance totals reflect these material acquisition costs in total expenses and net profit.
+
+### UC-037 Exclude Closed Shipments from Planning Queue
+
+- Logistics dashboard only lists completed orders that do not already have a non-cancelled shipment.
+- Delivered and returned shipments remain in the shipment register but do not reappear as ready-for-dispatch items.
+- The planning queue remains focused on eligible, unshipped completed orders.
 
 ### UC-026 and UC-027 Production Progress
 

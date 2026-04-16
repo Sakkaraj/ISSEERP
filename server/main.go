@@ -42,6 +42,7 @@ func setupRouter() *http.ServeMux {
 	// UC2 — Inventory & Material Reservations
 	mux.HandleFunc("/api/inventory/materials", handlers.MaterialsHandler)
 	mux.HandleFunc("/api/inventory/reservations", handlers.ReservationsHandler)
+	mux.HandleFunc("/api/logistics", handlers.LogisticsHandler)
 
 	// UC3 — QC Inspection Register
 	mux.HandleFunc("/api/qc", handlers.QCHandler)

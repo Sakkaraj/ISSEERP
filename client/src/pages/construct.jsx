@@ -3,7 +3,6 @@ import './styles/construct.css';
 
 const DESIGN_MODES = ['OEM', 'ODM', 'Bespoke'];
 const FURNITURE_TYPES = ['Chair', 'Table', 'Desk', 'Bed', 'Sofa', 'Bookshelf', 'Cabinet', 'Wardrobe'];
-const FINISH_OPTIONS = ['Natural Oak', 'Walnut Stain', 'Ebony', 'White Lacquer', 'Teak Oil', 'Matte Black', 'Antique Brass', 'Raw Steel'];
 const SPECIAL_OPTIONS_BY_MODE = {
     OEM: ['Mass production jig required', 'Retail-ready packaging', 'Barcode and SKU labeling', 'Knock-down assembly instructions'],
     ODM: ['Prototype variant requested', 'Private-label logo area', 'Catalog customization', 'Market-specific compliance'],
@@ -19,6 +18,9 @@ const MODE_HINT = {
 export default function Construct() {
     const [submissions, setSubmissions] = useState([]);
     const [loadingSubs, setLoadingSubs] = useState(true);
+    const [materials, setMaterials] = useState([]);
+    const [loadingMaterials, setLoadingMaterials] = useState(true);
+    const [materialsError, setMaterialsError] = useState('');
     const [showForm, setShowForm] = useState(false);
 
     const [form, setForm] = useState({
@@ -48,7 +50,26 @@ export default function Construct() {
         }
     }, []);
 
+    const fetchMaterials = useCallback(async () => {
+        setLoadingMaterials(true);
+        setMaterialsError('');
+        try {
+            const res = await fetch('/api/inventory/materials');
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            const data = await res.json();
+            setMaterials(Array.isArray(data) ? data : []);
+        } catch (err) {
+            setMaterials([]);
+            setMaterialsError(err.message);
+        } finally {
+            setLoadingMaterials(false);
+        }
+    }, []);
+
     useEffect(() => { fetchSubmissions(); }, [fetchSubmissions]);
+    useEffect(() => { fetchMaterials(); }, [fetchMaterials]);
+
+    const finishingMaterials = materials.filter(material => material.usable_for_finishing);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -79,6 +100,15 @@ export default function Construct() {
         setFormError('');
         if (!form.furnitureType) { setFormError('Please select a furniture type.'); return; }
         if (!form.primaryFinish) { setFormError('Primary finish is required.'); return; }
+        if (finishingMaterials.length === 0) { setFormError('No materials are currently tagged as usable for finishing.'); return; }
+        if (!finishingMaterials.some(material => material.material_name === form.primaryFinish)) {
+            setFormError('Primary finish must come from a material tagged usable for finishing.');
+            return;
+        }
+        if (form.secondaryFinish && !finishingMaterials.some(material => material.material_name === form.secondaryFinish)) {
+            setFormError('Secondary finish must come from a material tagged usable for finishing.');
+            return;
+        }
 
         setSubmitting(true);
         try {
@@ -111,6 +141,7 @@ export default function Construct() {
                 specialFinishes: [],
             });
             await fetchSubmissions();
+            await fetchMaterials();
             setTimeout(() => { setShowForm(false); setSuccessMsg(''); }, 2500);
         } catch (err) {
             setFormError(err.message);
@@ -118,6 +149,15 @@ export default function Construct() {
             setSubmitting(false);
         }
     };
+
+    useEffect(() => {
+        if (form.primaryFinish && !finishingMaterials.some(material => material.material_name === form.primaryFinish)) {
+            setForm(prev => ({ ...prev, primaryFinish: '' }));
+        }
+        if (form.secondaryFinish && !finishingMaterials.some(material => material.material_name === form.secondaryFinish)) {
+            setForm(prev => ({ ...prev, secondaryFinish: '' }));
+        }
+    }, [finishingMaterials, form.primaryFinish, form.secondaryFinish]);
 
     return (
         <div className="construct-page">
@@ -250,22 +290,38 @@ export default function Construct() {
                                 {/* Finishes */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="construct-label">Primary Finish *</label>
+                                        <label className="construct-label">Primary Finish Material *</label>
                                         <select id="construct-primary" name="primaryFinish" value={form.primaryFinish} onChange={handleChange}
                                             className="construct-field">
-                                            <option value="">Select finish…</option>
-                                            {FINISH_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                                            <option value="">Select usable material…</option>
+                                            {finishingMaterials.map(material => (
+                                                <option key={material.id} value={material.material_name}>
+                                                    {material.material_name}
+                                                </option>
+                                            ))}
                                         </select>
+                                        <p className="text-xs text-text/45 mt-2">Only materials tagged usable for finishing are listed.</p>
                                     </div>
                                     <div>
-                                        <label className="construct-label">Secondary Finish</label>
+                                        <label className="construct-label">Secondary Finish Material</label>
                                         <select id="construct-secondary" name="secondaryFinish" value={form.secondaryFinish} onChange={handleChange}
                                             className="construct-field">
                                             <option value="">None</option>
-                                            {FINISH_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                                            {finishingMaterials.map(material => (
+                                                <option key={material.id} value={material.material_name}>
+                                                    {material.material_name}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>
+
+                                {materialsError && (
+                                    <p className="text-xs text-red-400">Unable to load inventory materials: {materialsError}</p>
+                                )}
+                                {!loadingMaterials && finishingMaterials.length === 0 && (
+                                    <p className="text-xs text-yellow-400">No inventory materials are tagged as usable for finishing yet.</p>
+                                )}
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>

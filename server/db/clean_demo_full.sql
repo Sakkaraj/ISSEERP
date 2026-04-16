@@ -1,8 +1,8 @@
 -- Clean demo schema for the full UI
 -- Creates all application tables but does not seed mock operational data.
 
-CREATE DATABASE IF NOT EXISTS isse224_clean_demo_full;
-USE isse224_clean_demo_full;
+CREATE DATABASE IF NOT EXISTS isse224;
+USE isse224;
 
 -- =============================================
 -- Users Table (Authentication)
@@ -70,6 +70,7 @@ CREATE TABLE inventory_materials (
     unit            VARCHAR(50)  NOT NULL DEFAULT 'units',
     total_qty       INT NOT NULL DEFAULT 0,
     reserved_qty    INT NOT NULL DEFAULT 0,
+    usable_for_finishing BOOLEAN NOT NULL DEFAULT FALSE,
     location        VARCHAR(100) DEFAULT 'Warehouse A',
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -88,6 +89,30 @@ CREATE TABLE material_reservations (
     status          ENUM('Active', 'Released') DEFAULT 'Active',
     reserved_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (material_id) REFERENCES inventory_materials(id)
+);
+
+-- =============================================
+-- Logistics Shipments Table
+-- =============================================
+DROP TABLE IF EXISTS logistics_shipments;
+CREATE TABLE logistics_shipments (
+    id                    INT AUTO_INCREMENT PRIMARY KEY,
+    order_id              INT NOT NULL UNIQUE,
+    shipment_code         VARCHAR(50) NOT NULL UNIQUE,
+    destination           VARCHAR(255) NOT NULL,
+    delivery_method       ENUM('Internal Vehicle', 'Warehouse Pickup', 'Internal Transfer') NOT NULL DEFAULT 'Internal Vehicle',
+    vehicle_code          VARCHAR(50) NOT NULL,
+    driver_name           VARCHAR(100) NOT NULL,
+    priority              ENUM('Low', 'Normal', 'High', 'Urgent') NOT NULL DEFAULT 'Normal',
+    status                ENUM('Planned', 'Packed', 'Dispatched', 'Delivered', 'Returned', 'Cancelled') NOT NULL DEFAULT 'Planned',
+    scheduled_dispatch_at TIMESTAMP NULL,
+    dispatched_at         TIMESTAMP NULL,
+    delivered_at          TIMESTAMP NULL,
+    notes                 TEXT,
+    created_by            VARCHAR(100) NOT NULL,
+    created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
 -- =============================================

@@ -103,7 +103,15 @@ func ensureSchema() error {
 		return err
 	}
 
+	if err := ensureLogisticsTables(); err != nil {
+		return err
+	}
+
 	if err := ensureConstructionColumns(); err != nil {
+		return err
+	}
+
+	if err := ensureInventoryColumns(); err != nil {
 		return err
 	}
 
@@ -141,6 +149,34 @@ func ensureProductionTables() error {
 	return nil
 }
 
+func ensureLogisticsTables() error {
+	query := `CREATE TABLE IF NOT EXISTS logistics_shipments (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		order_id INT NOT NULL UNIQUE,
+		shipment_code VARCHAR(50) NOT NULL UNIQUE,
+		destination VARCHAR(255) NOT NULL,
+		delivery_method ENUM('Internal Vehicle', 'Warehouse Pickup', 'Internal Transfer') NOT NULL DEFAULT 'Internal Vehicle',
+		vehicle_code VARCHAR(50) NOT NULL,
+		driver_name VARCHAR(100) NOT NULL,
+		priority ENUM('Low', 'Normal', 'High', 'Urgent') NOT NULL DEFAULT 'Normal',
+		status ENUM('Planned', 'Packed', 'Dispatched', 'Delivered', 'Returned', 'Cancelled') NOT NULL DEFAULT 'Planned',
+		scheduled_dispatch_at TIMESTAMP NULL,
+		dispatched_at TIMESTAMP NULL,
+		delivered_at TIMESTAMP NULL,
+		notes TEXT,
+		created_by VARCHAR(100) NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		FOREIGN KEY (order_id) REFERENCES orders(id)
+	)`
+
+	if _, err := DB.Exec(query); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func ensureOrdersColumn(columnName, columnType string) error {
 	_, err := DB.Exec(fmt.Sprintf("ALTER TABLE orders ADD COLUMN %s %s", columnName, columnType))
 	return err
@@ -170,6 +206,27 @@ func ensureConstructionColumns() error {
 	return nil
 }
 
+func ensureInventoryColumns() error {
+	columns := map[string]string{
+		"usable_for_finishing": "BOOLEAN NOT NULL DEFAULT FALSE",
+	}
+
+	for columnName, columnType := range columns {
+		exists, err := inventoryColumnExists(columnName)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+		if _, err = DB.Exec(fmt.Sprintf("ALTER TABLE inventory_materials ADD COLUMN %s %s", columnName, columnType)); err != nil {
+			log.Printf("Schema migration warning: cannot add inventory_materials.%s column: %v", columnName, err)
+		}
+	}
+
+	return nil
+}
+
 func ordersColumnExists(columnName string) (bool, error) {
 	var exists int
 	err := DB.QueryRow(`
@@ -193,6 +250,22 @@ func constructionsColumnExists(columnName string) (bool, error) {
 		FROM information_schema.COLUMNS
 		WHERE TABLE_SCHEMA = DATABASE()
 		  AND TABLE_NAME = 'constructions'
+		  AND COLUMN_NAME = ?
+	`, columnName).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists > 0, nil
+}
+
+func inventoryColumnExists(columnName string) (bool, error) {
+	var exists int
+	err := DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE()
+		  AND TABLE_NAME = 'inventory_materials'
 		  AND COLUMN_NAME = ?
 	`, columnName).Scan(&exists)
 	if err != nil {

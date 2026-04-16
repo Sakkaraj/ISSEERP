@@ -3,7 +3,7 @@
 **Project:** BoonSunClon ERP Portal  
 **System:** Internal Information System for Furniture Manufacturing  
 **Date:** April 2026  
-**Version:** 2.1 (Workflow and Pricing Refinement)
+**Version:** 2.2 (Logistics and Finishing Traceability Append)
 
 ---
 
@@ -23,7 +23,7 @@ The system implements a comprehensive role-based access control model to ensure 
 | **Sale Staff** | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | **Quality Controller** | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
 | **Logistics Staff** | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
-| **Production** | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| **Production** | ✓ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ |
 
 ### Role Descriptions
 
@@ -62,6 +62,7 @@ The system implements a comprehensive role-based access control model to ensure 
 - Specialized role for production execution tracking
 - Exclusive access to Production page for assigned orders
 - Can view details of assigned orders and current progress
+- Can browse inventory materials for finishing lookup when selecting usable production materials
 - Can update production progress with notes and timestamped history
 - Can submit production progress for order lifecycle updates
 - Intended for production managers and workshop supervisors
@@ -90,7 +91,7 @@ Functional requirements describe what the system must do to support business ope
 | FR-013 | The system shall allow users to search orders by customer name or order ID. | [client/src/pages/orderdetail.jsx](../../client/src/pages/orderdetail.jsx) |
 | FR-014 | The system shall paginate order results with configurable items per page (default: 5). | [client/src/pages/orderdetail.jsx](../../client/src/pages/orderdetail.jsx) |
 | FR-015 | The system shall display a detailed order slide-over panel when a user selects an order row, including status, type, timeline, and amounts. | [client/src/pages/orderdetail.jsx](../../client/src/pages/orderdetail.jsx) |
-| FR-016 | The system shall retrieve and display inventory materials with total quantity, reserved quantity, and warehouse location. | [server/handlers/inventory.go](../../server/handlers/inventory.go), [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx) |
+| FR-016 | The system shall retrieve and display inventory materials with total quantity, reserved quantity, warehouse location, and usable-for-finishing tag. | [server/handlers/inventory.go](../../server/handlers/inventory.go), [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx) |
 | FR-017 | The system shall retrieve and display material reservation records linked to material names and order IDs. | [server/handlers/inventory.go](../../server/handlers/inventory.go), [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx) |
 | FR-018 | The system shall allow creation of material reservations with material, order ID, quantity, purpose, and reserved-by fields. | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go) |
 | FR-019 | The system shall validate that reservation quantity does not exceed available stock (total - reserved) before saving. | [server/handlers/inventory.go](../../server/handlers/inventory.go) |
@@ -98,8 +99,8 @@ Functional requirements describe what the system must do to support business ope
 | FR-021 | The system shall retrieve and display QC inspection records sorted by inspection date (most recent first). | [server/handlers/qc.go](../../server/handlers/qc.go), [client/src/pages/qc.jsx](../../client/src/pages/qc.jsx) |
 | FR-022 | The system shall allow users to submit QC inspection records with order ID, batch ID, product description, AQL level, result, defect count, inspector name, and optional notes. | [client/src/pages/qc.jsx](../../client/src/pages/qc.jsx), [server/handlers/qc.go](../../server/handlers/qc.go) |
 | FR-023 | The system shall allow filtering QC records by result status (All, Pass, Fail). | [client/src/pages/qc.jsx](../../client/src/pages/qc.jsx) |
-| FR-024 | The system shall allow users to create and view furniture design specifications including furniture type, primary finish, secondary finish, and special finishes. | [client/src/pages/construct.jsx](../../client/src/pages/construct.jsx), [server/handlers/constructions.go](../../server/handlers/constructions.go) |
-| FR-025 | The system shall allow users to add a new inventory material with material name, unit, initial quantity, and storage location. | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go) |
+| FR-024 | The system shall allow users to create and view furniture design specifications including furniture type, primary finish, secondary finish, and special finishes, with finish options sourced only from inventory materials tagged usable for finishing. | [client/src/pages/construct.jsx](../../client/src/pages/construct.jsx), [server/handlers/constructions.go](../../server/handlers/constructions.go), [server/handlers/inventory.go](../../server/handlers/inventory.go) |
+| FR-025 | The system shall allow users to add a new inventory material with material name, unit, initial quantity, storage location, and a usable-for-finishing tag. | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go) |
 | FR-026 | The system shall allow users to restock an existing inventory material by increasing total quantity using a positive added quantity value. | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go) |
 | FR-027 | The system shall allow users to change an order status as a draft selection and persist it only when the user explicitly clicks Save/Update. | [client/src/pages/orderdetail.jsx](../../client/src/pages/orderdetail.jsx), [server/handlers/orders.go](../../server/handlers/orders.go) |
 | FR-028 | The system shall record order lifecycle timestamps when status transitions occur, including started_at for In Progress and completed_at for Completed. | [server/handlers/orders.go](../../server/handlers/orders.go), [server/db/db.go](../../server/db/db.go) |
@@ -116,8 +117,17 @@ Functional requirements describe what the system must do to support business ope
 | FR-039 | The system shall provide a QC Required Items list that shows production-submitted orders that still have no QC Pass result. | [server/handlers/qc.go](../../server/handlers/qc.go), [client/src/pages/qc.jsx](../../client/src/pages/qc.jsx) |
 | FR-040 | The system shall keep orders with latest QC result = Fail in the QC Required Items list until a subsequent QC Pass is recorded. | [server/handlers/qc.go](../../server/handlers/qc.go), [client/src/pages/qc.jsx](../../client/src/pages/qc.jsx) |
 | FR-041 | The system shall update order status to Completed only when QC result is Pass, and keep/revert to In Progress when QC result is Fail. | [server/handlers/qc.go](../../server/handlers/qc.go), [server/handlers/orders.go](../../server/handlers/orders.go) |
+| FR-042 | The system shall expose a logistics dashboard showing shipment summary counters, ready-for-dispatch completed orders, and current shipment register data. | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go) |
+| FR-043 | The system shall allow logistics users to create a shipment plan for a completed order with destination, delivery method, vehicle code, driver name, priority, and optional schedule/notes. | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go), [server/db/schema.sql](../../server/db/schema.sql) |
+| FR-044 | The system shall reject shipment creation when the target order is not completed or when an active shipment already exists for that order. | [server/handlers/logistics.go](../../server/handlers/logistics.go), [server/db/schema.sql](../../server/db/schema.sql) |
+| FR-045 | The system shall allow shipment updates for status and dispatch metadata (destination, vehicle, driver, delivery method, priority, scheduled dispatch, notes). | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go) |
+| FR-046 | The system shall auto-capture dispatched_at when shipment status transitions to Dispatched and delivered_at when status transitions to Delivered. | [server/handlers/logistics.go](../../server/handlers/logistics.go), [server/db/schema.sql](../../server/db/schema.sql) |
+| FR-047 | The system shall restrict Inventory route access to Admin and Logistics Staff roles while still allowing production workflow updates through the Production module. | [client/src/pages/App.jsx](../../client/src/pages/App.jsx), [client/src/pages/production.jsx](../../client/src/pages/production.jsx) |
+| FR-048 | The system shall record inventory opening stock as an expense entry when a new material is created with an initial quantity and unit cost. | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go), [server/db/schema.sql](../../server/db/schema.sql) |
+| FR-049 | The system shall record inventory restock cost as an expense entry using the added quantity and unit cost when restocking material. | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go), [server/db/schema.sql](../../server/db/schema.sql) |
+| FR-050 | The system shall exclude completed orders that already have a non-cancelled shipment from the dispatch planning queue, including delivered and returned shipments. | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go) |
 
-**Total Functional Requirements: 42**
+**Total Functional Requirements: 51**
 
 ---
 
@@ -147,8 +157,12 @@ Non-functional requirements describe quality attributes, constraints, and cross-
 | NFR-018 | **Security**: The system shall restrict user creation functionality to Admin role only, preventing unauthorized user account creation. | [client/src/pages/usermanagement.jsx](../../client/src/pages/usermanagement.jsx), [server/handlers/auth.go](../../server/handlers/auth.go), [client/src/pages/App.jsx](../../client/src/pages/App.jsx) |
 | NFR-019 | **Usability**: The system shall provide role permission reference information on the User Management page to guide admins when creating accounts. | [client/src/pages/usermanagement.jsx](../../client/src/pages/usermanagement.jsx) |
 | NFR-020 | **Consistency**: The system shall use backend-computed derived values (for example, order total amount from quantity and unit price) as the authoritative persisted values to prevent client-server calculation drift. | [server/handlers/orders.go](../../server/handlers/orders.go), [client/src/pages/orderdetail.jsx](../../client/src/pages/orderdetail.jsx) |
+| NFR-021 | **Auditability**: The system shall retain shipment lifecycle timestamps (scheduled, dispatched, delivered, created, updated) to support dispatch traceability. | [server/handlers/logistics.go](../../server/handlers/logistics.go), [server/db/schema.sql](../../server/db/schema.sql) |
+| NFR-022 | **Consistency**: The system shall use inventory-tagged finishing materials as the single source for finish option lists in design specification forms. | [client/src/pages/construct.jsx](../../client/src/pages/construct.jsx), [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go) |
+| NFR-023 | **Consistency**: The system shall treat inventory material additions and restocks as finance-tracked expense events so cost and profit reporting includes material acquisition costs. | [client/src/pages/inventory.jsx](../../client/src/pages/inventory.jsx), [server/handlers/inventory.go](../../server/handlers/inventory.go), [server/handlers/dashboard.go](../../server/handlers/dashboard.go), [client/src/pages/finance.jsx](../../client/src/pages/finance.jsx) |
+| NFR-024 | **Reliability**: The system shall keep completed or returned logistics shipments out of the ready-for-dispatch planning list until a new eligible shipment workflow is created. | [client/src/pages/logistics.jsx](../../client/src/pages/logistics.jsx), [server/handlers/logistics.go](../../server/handlers/logistics.go) |
 
-**Total Non-Functional Requirements: 20**
+**Total Non-Functional Requirements: 24**
 
 ---
 
@@ -192,11 +206,11 @@ Non-functional requirements describe quality attributes, constraints, and cross-
 
 | Artifact | Count | Notes |
 |---|---|---|
-| Functional Requirements | 42 | Cover authentication, order pricing, order lifecycle, inventory, QC, production workflow, design specification, and finance aggregation domains. |
-| Non-Functional Requirements | 20 | Address security, reliability, usability, maintainability, deployability, auditability, consistency, and data integrity. |
-| Handler Files | 7 | auth, orders, inventory, qc, constructions, dashboard, production |
-| Frontend Pages | 9 | login, home, dashboard, orderdetail, inventory, qc, production, construct, finance |
-| Database Tables | 9 | users, orders, supplies, constructions, inventory_materials, material_reservations, qc_records, production_assignments, production_progress |
+| Functional Requirements | 51 | Cover authentication, order pricing, order lifecycle, inventory, finishing-tag rules, QC, production workflow, logistics dispatch, inventory expense tracking, design specification, and finance aggregation domains. |
+| Non-Functional Requirements | 24 | Address security, reliability, usability, maintainability, deployability, auditability, consistency, and data integrity. |
+| Handler Files | 8 | auth, orders, inventory, qc, constructions, dashboard, production, logistics |
+| Frontend Pages | 10 | login, home, dashboard, orderdetail, inventory, qc, production, construct, logistics, finance |
+| Database Tables | 10 | users, orders, supplies, constructions, inventory_materials, material_reservations, logistics_shipments, qc_records, production_assignments, production_progress |
 
 ---
 

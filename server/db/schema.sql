@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS inventory_materials (
     unit            VARCHAR(50)  NOT NULL DEFAULT 'units',
     total_qty       INT NOT NULL DEFAULT 0,
     reserved_qty    INT NOT NULL DEFAULT 0,
+    usable_for_finishing BOOLEAN NOT NULL DEFAULT FALSE,
     location        VARCHAR(100) DEFAULT 'Warehouse A',
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -85,6 +86,29 @@ CREATE TABLE IF NOT EXISTS material_reservations (
     status          ENUM('Active', 'Released') DEFAULT 'Active',
     reserved_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (material_id) REFERENCES inventory_materials(id)
+);
+
+-- =============================================
+-- Logistics Shipments Table (in-house dispatch tracking)
+-- =============================================
+CREATE TABLE IF NOT EXISTS logistics_shipments (
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    order_id            INT NOT NULL UNIQUE,
+    shipment_code       VARCHAR(50) NOT NULL UNIQUE,
+    destination         VARCHAR(255) NOT NULL,
+    delivery_method     ENUM('Internal Vehicle', 'Warehouse Pickup', 'Internal Transfer') NOT NULL DEFAULT 'Internal Vehicle',
+    vehicle_code        VARCHAR(50) NOT NULL,
+    driver_name         VARCHAR(100) NOT NULL,
+    priority            ENUM('Low', 'Normal', 'High', 'Urgent') NOT NULL DEFAULT 'Normal',
+    status              ENUM('Planned', 'Packed', 'Dispatched', 'Delivered', 'Returned', 'Cancelled') NOT NULL DEFAULT 'Planned',
+    scheduled_dispatch_at TIMESTAMP NULL,
+    dispatched_at       TIMESTAMP NULL,
+    delivered_at        TIMESTAMP NULL,
+    notes               TEXT,
+    created_by          VARCHAR(100) NOT NULL,
+    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
 -- =============================================
@@ -157,19 +181,37 @@ INSERT INTO supplies (item_name, cost, category) VALUES
 ('Warehouse Electricity',    280.00, 'Utility');
 
 -- Inventory Materials
-INSERT INTO inventory_materials (material_name, unit, total_qty, reserved_qty, location) VALUES
-('Teak Wood (Grade A)',          'boards', 200, 45, 'Warehouse A'),
-('Oak Wood (Grade A)',           'boards', 150, 30, 'Warehouse A'),
-('Pine Wood (Grade B)',          'boards', 300, 10, 'Warehouse B'),
-('Premium Leather',              'rolls',   80, 20, 'Warehouse C'),
-('Stainless Steel Frame',        'units',   60, 15, 'Workshop'),
-('Foam Padding (High-Density)',  'sheets', 120,  0, 'Warehouse C');
+INSERT INTO inventory_materials (material_name, unit, total_qty, reserved_qty, usable_for_finishing, location) VALUES
+('Teak Wood (Grade A)',          'boards', 200, 45, TRUE,  'Warehouse A'),
+('Oak Wood (Grade A)',           'boards', 150, 30, TRUE,  'Warehouse A'),
+('Pine Wood (Grade B)',          'boards', 300, 10, TRUE,  'Warehouse B'),
+('Premium Leather',              'rolls',   80, 20, TRUE,  'Warehouse C'),
+('Stainless Steel Frame',        'units',   60, 15, FALSE, 'Workshop'),
+('Foam Padding (High-Density)',  'sheets', 120,  0, FALSE, 'Warehouse C');
 
 -- Material Reservations
 INSERT INTO material_reservations (material_id, order_id, reserved_qty, purpose, reserved_by, status) VALUES
 (1, 'ORD-2024', 20, 'Bespoke Dining Set',  'Somchai W.', 'Active'),
 (4, 'ORD-2021', 12, 'Bespoke Sofa Set',    'Napat K.',   'Active'),
 (2, 'ORD-1998', 15, 'Bespoke Bookshelf',   'Anong P.',   'Released');
+
+-- Logistics Shipments
+INSERT INTO logistics_shipments (
+    order_id,
+    shipment_code,
+    destination,
+    delivery_method,
+    vehicle_code,
+    driver_name,
+    priority,
+    status,
+    scheduled_dispatch_at,
+    dispatched_at,
+    delivered_at,
+    notes,
+    created_by
+) VALUES
+(1, 'LGS-0001-20240416', 'Acme Corp Central Office', 'Internal Vehicle', 'TRK-01', 'Somchai W.', 'Normal', 'Delivered', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'Delivered through internal dispatch route.', 'logistics_staff');
 
 -- QC Records
 INSERT INTO qc_records (order_id, batch_id, product_description, aql_level, result, defect_count, inspector_name, notes) VALUES

@@ -34,8 +34,8 @@ export default function Inventory() {
     const [showRestockModal, setShowRestockModal] = useState(false);
     const [activeTab, setActiveTab] = useState('stock');
     const [form, setForm] = useState({ materialId: '', quantity: '', orderId: '', purpose: '', reservedBy: '' });
-    const [addForm, setAddForm] = useState({ materialName: '', unit: 'units', totalQty: '', location: 'Warehouse A' });
-    const [restockForm, setRestockForm] = useState({ materialId: '', addedQty: '' });
+    const [addForm, setAddForm] = useState({ materialName: '', unit: 'units', totalQty: '', unitCost: '', location: 'Warehouse A', usableForFinishing: false });
+    const [restockForm, setRestockForm] = useState({ materialId: '', addedQty: '', unitCost: '' });
     const [formError, setFormError] = useState('');
     const [addError, setAddError] = useState('');
     const [restockError, setRestockError] = useState('');
@@ -47,7 +47,13 @@ export default function Inventory() {
     const [restockSuccessMsg, setRestockSuccessMsg] = useState('');
 
     const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    const handleAddFormChange = (e) => setAddForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleAddFormChange = (e) => {
+        const { name, type, checked, value } = e.target;
+        setAddForm(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value,
+        }));
+    };
     const handleRestockFormChange = (e) => setRestockForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
     const handleReserve = async (e) => {
@@ -91,9 +97,11 @@ export default function Inventory() {
         e.preventDefault();
         setAddError('');
         const totalQty = parseInt(addForm.totalQty, 10);
+        const unitCost = parseFloat(addForm.unitCost);
 
         if (!addForm.materialName.trim()) { setAddError('Material name is required.'); return; }
         if (isNaN(totalQty) || totalQty < 0) { setAddError('Enter a valid total quantity (0 or more).'); return; }
+        if (totalQty > 0 && (isNaN(unitCost) || unitCost <= 0)) { setAddError('Enter a valid unit cost greater than 0.'); return; }
 
         setAdding(true);
         try {
@@ -104,6 +112,8 @@ export default function Inventory() {
                     material_name: addForm.materialName,
                     unit: addForm.unit,
                     total_qty: totalQty,
+                    unit_cost: totalQty > 0 ? unitCost : 0,
+                    usable_for_finishing: addForm.usableForFinishing,
                     location: addForm.location,
                 }),
             });
@@ -111,7 +121,7 @@ export default function Inventory() {
             if (!res.ok) throw new Error(data.error || 'Failed to add material');
 
             setAddSuccessMsg(`Material #${data.id} added successfully.`);
-            setAddForm({ materialName: '', unit: 'units', totalQty: '', location: 'Warehouse A' });
+            setAddForm({ materialName: '', unit: 'units', totalQty: '', unitCost: '', location: 'Warehouse A', usableForFinishing: false });
             await refetchMats();
             setTimeout(() => { setShowAddModal(false); setAddSuccessMsg(''); }, 1800);
         } catch (err) {
@@ -126,9 +136,11 @@ export default function Inventory() {
         setRestockError('');
         const matId = parseInt(restockForm.materialId, 10);
         const qty = parseInt(restockForm.addedQty, 10);
+        const unitCost = parseFloat(restockForm.unitCost);
 
         if (!matId) { setRestockError('Please select a material.'); return; }
         if (!qty || qty <= 0) { setRestockError('Added quantity must be greater than 0.'); return; }
+        if (isNaN(unitCost) || unitCost <= 0) { setRestockError('Unit cost must be greater than 0.'); return; }
 
         setRestocking(true);
         try {
@@ -138,13 +150,14 @@ export default function Inventory() {
                 body: JSON.stringify({
                     material_id: matId,
                     added_qty: qty,
+                    unit_cost: unitCost,
                 }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to restock material');
 
             setRestockSuccessMsg(`Added ${qty} units to material #${matId}.`);
-            setRestockForm({ materialId: '', addedQty: '' });
+            setRestockForm({ materialId: '', addedQty: '', unitCost: '' });
             await refetchMats();
             setTimeout(() => { setShowRestockModal(false); setRestockSuccessMsg(''); }, 1800);
         } catch (err) {
@@ -234,6 +247,7 @@ export default function Inventory() {
                                 <tr className="bg-black/20 border-b border-white/10 text-xs font-semibold text-text/60 uppercase tracking-wider">
                                     <th className="p-4 pl-6">ID</th>
                                     <th className="p-4">Material Name</th>
+                                    <th className="p-4">Finishing Tag</th>
                                     <th className="p-4">Location</th>
                                     <th className="p-4 text-center">Total</th>
                                     <th className="p-4 text-center">Reserved</th>
@@ -250,6 +264,11 @@ export default function Inventory() {
                                         <tr key={mat.id} className="hover:bg-white/5 transition-colors">
                                             <td className="p-4 pl-6 font-mono text-xs text-text/50">#{mat.id}</td>
                                             <td className="p-4 font-semibold text-text">{mat.material_name}</td>
+                                            <td className="p-4">
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${mat.usable_for_finishing ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-white/5 text-text/40 border-white/10'}`}>
+                                                    {mat.usable_for_finishing ? 'Usable for finishing' : 'Not usable'}
+                                                </span>
+                                            </td>
                                             <td className="p-4 text-sm text-text/70">{mat.location}</td>
                                             <td className="p-4 text-center text-text/80">{mat.total_qty} <span className="text-xs text-text/40">{mat.unit}</span></td>
                                             <td className="p-4 text-center text-yellow-400 font-medium">{mat.reserved_qty}</td>
@@ -411,9 +430,29 @@ export default function Inventory() {
                                     </div>
                                 </div>
                                 <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Unit Cost</label>
+                                    <input type="number" step="0.01" name="unitCost" value={addForm.unitCost} onChange={handleAddFormChange} min="0" placeholder="0.00"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                    <p className="text-xs text-text/45 mt-1">Required when Total Qty is greater than 0 for finance expense tracking.</p>
+                                </div>
+                                <div>
                                     <label className="text-sm font-medium text-text/70 mb-1 block">Location</label>
                                     <input type="text" name="location" value={addForm.location} onChange={handleAddFormChange} placeholder="Warehouse A"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                                    <input
+                                        id="usableForFinishing"
+                                        type="checkbox"
+                                        name="usableForFinishing"
+                                        checked={addForm.usableForFinishing}
+                                        onChange={handleAddFormChange}
+                                        className="w-4 h-4 accent-primary cursor-pointer"
+                                    />
+                                    <div>
+                                        <label className="text-sm font-medium text-text/80 cursor-pointer" htmlFor="usableForFinishing">Usable for finishing</label>
+                                        <p className="text-xs text-text/45">Shows this material in design specification finish dropdowns.</p>
+                                    </div>
                                 </div>
                                 <button type="submit" disabled={adding}
                                     className="w-full bg-primary text-white font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed">
@@ -453,6 +492,11 @@ export default function Inventory() {
                                 <div>
                                     <label className="text-sm font-medium text-text/70 mb-1 block">Added Quantity *</label>
                                     <input type="number" name="addedQty" value={restockForm.addedQty} onChange={handleRestockFormChange} min="1" placeholder="e.g. 50"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Unit Cost *</label>
+                                    <input type="number" step="0.01" name="unitCost" value={restockForm.unitCost} onChange={handleRestockFormChange} min="0" placeholder="0.00"
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                                 </div>
                                 <button type="submit" disabled={restocking}
