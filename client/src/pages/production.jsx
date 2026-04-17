@@ -258,7 +258,7 @@ export default function Production() {
             {selectedOrder && (
                 <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedOrder(null)}>
                     <div
-                        className="fixed right-0 top-0 h-full z-50 w-full max-w-md bg-[hsl(220,15%,10%)] border-l border-white/10 shadow-2xl flex flex-col"
+                        className="fixed right-0 top-0 h-full z-50 w-full max-w-md bg-background border-l border-white/10 shadow-2xl flex flex-col"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="p-6 border-b border-white/10 flex items-center justify-between">
@@ -352,7 +352,13 @@ export default function Production() {
 
 function StatCard({ title, value }) {
     return (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+        <div
+            className="rounded-xl p-4"
+            style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-surface-border-strong)',
+            }}
+        >
             <p className="text-xs text-text/50 uppercase tracking-wider">{title}</p>
             <p className="text-2xl font-bold text-text mt-1">{value}</p>
         </div>

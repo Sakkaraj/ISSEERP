@@ -6,7 +6,12 @@ export default function ThemeToggle() {
     return (
         <button
             onClick={toggleTheme}
-            className="w-full p-2 border rounded bg-secondary text-text transition-colors duration-200 hover:bg-opacity-80"
+            className="w-full px-3 py-2.5 rounded-lg text-text font-semibold transition-colors duration-200"
+            style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-surface-border-strong)',
+                boxShadow: 'inset 0 0 0 1px var(--color-surface-border)',
+            }}
         > {theme == 'light' ? 'Dark Mode' : 'Light Mode'}
         </button>
     )

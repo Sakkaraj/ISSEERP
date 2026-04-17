@@ -430,7 +430,7 @@ export default function OrderDetail() {
                     {/* Backdrop */}
                     <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedOrder(null)} />
                     {/* Panel */}
-                    <div className="fixed right-0 top-0 h-full z-50 w-full max-w-md bg-[hsl(220,15%,10%)] border-l border-white/10 shadow-2xl flex flex-col orderdetail-slide-in">
+                    <div className="fixed right-0 top-0 h-full z-50 w-full max-w-md bg-background border-l border-white/10 shadow-2xl flex flex-col orderdetail-slide-in">
                         {/* Panel header */}
                         <div className="p-6 border-b border-white/10 flex items-center justify-between">
                             <div>

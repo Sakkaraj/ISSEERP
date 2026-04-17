@@ -533,7 +533,13 @@ export default function Logistics() {
 
 function StatCard({ label, value, tone, border }) {
 	return (
-		<div className={`bg-white/5 border ${border} rounded-2xl p-5`}>
+		<div
+			className={`border ${border} rounded-2xl p-5`}
+			style={{
+				backgroundColor: 'var(--color-surface)',
+				boxShadow: 'inset 0 0 0 1px var(--color-surface-border-strong)',
+			}}
+		>
 			<p className="text-text/50 text-sm font-medium">{label}</p>
 			<p className={`text-3xl font-extrabold mt-1 ${tone}`}>{value}</p>
 		</div>

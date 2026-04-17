@@ -121,7 +121,7 @@ function Dashboard() {
                     </div>
                     <div>
                         <h3 className="font-semibold text-text">Database Connection Stable</h3>
-                        <p className="text-sm text-text/60">Connected to <code className="font-mono text-primary">isse224</code> on MySQL via Go Backend.</p>
+                        <p className="text-sm text-text/60">Connected to <code className="font-mono text-primary">isse224</code> on MySQL via Node.js backend.</p>
                     </div>
                 </div>
                 <div className="dashboard-version-badge">

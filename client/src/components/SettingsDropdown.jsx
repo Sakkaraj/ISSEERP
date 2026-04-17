@@ -11,6 +11,7 @@ export default function SettingsDropdown({ onLogout }) {
                 onClick={() => setIsOpen(!isOpen)}
                 onBlur={() => setTimeout(() => setIsOpen(false), 150)}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 shadow-sm px-3 py-2 bg-white/5 text-sm font-medium text-text hover:bg-white/10 focus:outline-none transition-colors"
+                style={{ borderColor: 'var(--color-surface-border-strong)', backgroundColor: 'var(--color-surface)' }}
                 id="options-menu"
                 aria-haspopup="true"
             >
@@ -25,7 +26,8 @@ export default function SettingsDropdown({ onLogout }) {
 
             {isOpen && (
                 <div
-                    className="origin-top-right absolute right-0 mt-2 w-52 rounded-xl shadow-2xl bg-[hsl(220,15%,12%)] border border-white/10 focus:outline-none z-50"
+                    className="origin-top-right absolute right-0 mt-2 w-52 rounded-xl shadow-2xl bg-background/95 backdrop-blur-xl border border-white/10 focus:outline-none z-50"
+                    style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-surface-border-strong)' }}
                     role="menu"
                 >
                     <div className="py-2">

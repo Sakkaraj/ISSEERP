@@ -142,7 +142,11 @@ export default function QCRegister() {
                     { label: 'Failed', value: failCount, color: 'text-red-400', border: 'border-red-400/20' },
                     { label: 'Pass Rate', value: `${passRate}%`, color: passRate >= 80 ? 'text-green-400' : 'text-yellow-400', border: 'border-white/10' },
                 ].map((c, i) => (
-                    <div key={i} className={`bg-white/5 border ${c.border} rounded-2xl p-5`}>
+                    <div
+                        key={i}
+                        className={`border ${c.border} rounded-2xl p-5`}
+                        style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-surface-border-strong)' }}
+                    >
                         <p className="text-text/50 text-sm font-medium">{c.label}</p>
                         <p className={`text-3xl font-extrabold mt-1 ${c.color}`}>{c.value}</p>
                     </div>

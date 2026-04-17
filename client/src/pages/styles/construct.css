@@ -24,7 +24,7 @@
 	}
 
 	.construct-modal-panel {
-		@apply bg-[hsl(220,15%,12%)] border border-white/10 rounded-2xl shadow-2xl w-full max-w-xl p-8 relative max-h-[90vh] overflow-y-auto;
+		@apply bg-background border border-white/10 rounded-2xl shadow-2xl w-full max-w-xl p-8 relative max-h-[90vh] overflow-y-auto;
 	}
 
 	.construct-modal-close {
