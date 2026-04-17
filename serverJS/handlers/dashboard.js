@@ -50,11 +50,11 @@ export async function dashboardSummaryHandler(req, res) {
         AND (q.result IS NULL OR q.result <> 'Pass')
       `);
 
-         return writeJSON(res, 200, {
-           pending_orders: pendingResult[0][0],
-           materials_reserved: reservedResult[0][0],
-           completed_production: completedResult[0][0],
-           pending_qc: pendingQCResult[0][0]
+      return writeJSON(res, 200, {
+        pending_orders: Number(pendingResult[0].count || 0),
+        materials_reserved: Number(reservedResult[0].count || 0),
+        completed_production: Number(completedResult[0].count || 0),
+        pending_qc: Number(pendingQCResult[0].count || 0)
       });
     } finally {
       connection.release();
@@ -101,22 +101,22 @@ export async function financeHandler(req, res) {
         LIMIT 8
       `);
 
-         const totalIncome = parseFloat(incomeResult[0][0]);
-         const totalExpenses = parseFloat(expensesResult[0][0]);
+      const totalIncome = parseFloat(incomeResult[0].total || 0);
+      const totalExpenses = parseFloat(expensesResult[0].total || 0);
       const netProfit = totalIncome - totalExpenses;
 
       const recentOrders = orderRows.map(row => ({
-        id: row[0],
-        name: row[1],
-        amount: parseFloat(row[2]),
-        date: new Date(row[3]).toISOString().split('T')[0]
+        id: row.id,
+        name: row.customer_name,
+        amount: parseFloat(row.total_amount || 0),
+        date: row.order_date ? new Date(row.order_date).toISOString().split('T')[0] : ''
       }));
 
       const recentSupplies = supplyRows.map(row => ({
-        id: row[0],
-        name: row[1],
-        cost: parseFloat(row[2]),
-        date: new Date(row[3]).toISOString().split('T')[0]
+        id: row.id,
+        name: row.item_name,
+        cost: parseFloat(row.cost || 0),
+        date: row.purchase_date ? new Date(row.purchase_date).toISOString().split('T')[0] : ''
       }));
 
       return writeJSON(res, 200, {

@@ -29,7 +29,7 @@ export async function connectDB() {
     await ensureSchema();
   } catch (error) {
     console.error('Failed to connect to DB:', error.message);
-    process.exit(1);
+    throw error;
   }
 }
 

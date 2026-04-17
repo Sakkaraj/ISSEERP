@@ -22,6 +22,18 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+let dbInitPromise = null;
+
+async function ensureDBReady() {
+  if (!dbInitPromise) {
+    dbInitPromise = connectDB().catch((error) => {
+      dbInitPromise = null;
+      throw error;
+    });
+  }
+  return dbInitPromise;
+}
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 const FRONTEND_DEV_URL = process.env.FRONTEND_DEV_URL || '';
@@ -118,7 +130,7 @@ app.use((err, req, res, next) => {
 
 async function startServer() {
   try {
-    await connectDB();
+    await ensureDBReady();
     app.listen(PORT, () => {
       console.log(`Server is running on :${PORT}`);
     });
@@ -128,4 +140,18 @@ async function startServer() {
   }
 }
 
-startServer();
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === __filename;
+
+if (isDirectRun) {
+  startServer();
+}
+
+export default async function handler(req, res) {
+  try {
+    await ensureDBReady();
+    return app(req, res);
+  } catch (error) {
+    console.error('Serverless handler startup error:', error);
+    return res.status(500).json({ error: 'Failed to initialize backend' });
+  }
+}
