@@ -199,7 +199,7 @@ export default function QCRegister() {
                 {['All', 'Pass', 'Fail'].map(f => (
                     <button key={f} onClick={() => setFilterResult(f)}
                         className={`px-5 py-2 rounded-lg font-semibold text-sm transition-all ${filterResult === f ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-text/50 hover:text-text hover:bg-white/5'}`}>
-                        {f === 'All' ? '📋 All Records' : f === 'Pass' ? '✅ Passed' : '❌ Failed'}
+                        {f === 'All' ? 'All Records' : f === 'Pass' ? 'Passed' : 'Failed'}
                     </button>
                 ))}
             </div>

@@ -226,7 +226,7 @@ export default function Inventory() {
 
             {/* Tabs */}
             <div className="flex gap-2 mb-6">
-                {[['stock', '📦 Material Stock'], ['reservations', '🔒 Reservations']].map(([tab, label]) => (
+                {[['stock', 'Material Stock'], ['reservations', 'Reservations']].map(([tab, label]) => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
                         className={`px-5 py-2 rounded-lg font-semibold text-sm transition-all ${activeTab === tab ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-text/50 hover:text-text hover:bg-white/5'}`}>
                         {label}
