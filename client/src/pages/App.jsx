@@ -74,6 +74,13 @@ function App() {
     const isLoginPage = location.pathname === '/login';
     const [userRole, setUserRole] = useState('');
 
+    const handleLogout = () => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('username');
+        navigate('/login', { replace: true });
+    };
+
     // Load role from localStorage on mount or token change
     useEffect(() => {
         const role = localStorage.getItem('user_role');
@@ -107,16 +114,11 @@ function App() {
                                 <span className="text-[10px] text-primary uppercase tracking-widest mt-1 font-bold">ERP Authorized</span>
                             </div>
                             
-                            <SettingsDropdown />
+                            <SettingsDropdown onLogout={handleLogout} />
                             
                             <button 
                                 id="header-logout"
-                                onClick={() => {
-                                    localStorage.removeItem('auth_token');
-                                    localStorage.removeItem('user_role');
-                                    localStorage.removeItem('username');
-                                    navigate('/login', { replace: true });
-                                }}
+                                onClick={handleLogout}
                                 className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold hover:bg-red-500/20 transition-all uppercase tracking-wider"
                             >
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
