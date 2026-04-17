@@ -308,8 +308,8 @@ export default function QCRegister() {
                                         <label className="text-sm font-medium text-text/70 mb-1 block">Result *</label>
                                         <select id="qc-result" name="result" value={form.result} onChange={handleFormChange}
                                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                            <option value="Pass">✅ Pass</option>
-                                            <option value="Fail">❌ Fail</option>
+                                            <option value="Pass">Pass</option>
+                                            <option value="Fail">Fail</option>
                                         </select>
                                     </div>
                                 </div>
