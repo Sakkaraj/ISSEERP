@@ -1,7 +1,7 @@
 /* App.jsx — Main shell for BoonSunClon ERP */
 import React, { useState, useEffect } from "react";
 import './index.css';
-import { NavLink, Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { NavLink, Route, Routes, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Finance from './finance';
 import Home from './home';
 import SettingsDropdown from "../components/SettingsDropdown";
@@ -70,6 +70,7 @@ function RequireAuth({ children }) {
 
 function App() {
     const location = useLocation();
+    const navigate = useNavigate();
     const isLoginPage = location.pathname === '/login';
     const [userRole, setUserRole] = useState('');
 
@@ -114,7 +115,7 @@ function App() {
                                     localStorage.removeItem('auth_token');
                                     localStorage.removeItem('user_role');
                                     localStorage.removeItem('username');
-                                    window.location.href = '/login';
+                                    navigate('/login', { replace: true });
                                 }}
                                 className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold hover:bg-red-500/20 transition-all uppercase tracking-wider"
                             >
