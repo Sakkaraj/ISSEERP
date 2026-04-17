@@ -1,0 +1,18 @@
+{
+  "id": 1,
+  "customer_name": "John",
+  "order_type": "OEM",
+  "total_amount": 1000,
+  "item_count": 1,
+  "status": "In Progress",
+  "production_status": "In Progress",
+  "order_date": "2026-04-17T04:53:08.000Z",
+  "started_at": "2026-04-17T04:53:13.000Z",
+  "completed_at": null,
+  "assigned_to": "Unassigned",
+  "progress_percent": 20,
+  "progress_note": "",
+  "progress_updated_at": "2026-04-17T04:53:44.000Z",
+  "progress_submitted_at": null,
+  "progress_last_updated_by": "Unassigned"
+}

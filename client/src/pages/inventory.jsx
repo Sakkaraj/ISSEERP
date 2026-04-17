@@ -168,7 +168,7 @@ export default function Inventory() {
     };
 
     const getUtilizationClass = (mat) => {
-        const denominator = mat.total_qty + mat.reserved_qty;
+        const denominator = mat.total_qty;
         const pct = denominator > 0 ? (mat.reserved_qty / denominator) * 100 : 0;
         if (pct >= 80) return 'inventory-utilization-high';
         if (pct >= 50) return 'inventory-utilization-medium';
@@ -257,8 +257,8 @@ export default function Inventory() {
                             </thead>
                             <tbody className="divide-y divide-white/10">
                                 {materials.map(mat => {
-                                    const available = mat.total_qty;
-                                    const denominator = mat.total_qty + mat.reserved_qty;
+                                    const available = Math.max(Number(mat.total_qty || 0) - Number(mat.reserved_qty || 0), 0);
+                                    const denominator = Number(mat.total_qty || 0);
                                     const pct = denominator > 0 ? Math.round((mat.reserved_qty / denominator) * 100) : 0;
                                     return (
                                         <tr key={mat.id} className="hover:bg-white/5 transition-colors">
@@ -353,7 +353,7 @@ export default function Inventory() {
                                         <option value="">Select material…</option>
                                         {materials.map(m => (
                                             <option key={m.id} value={m.id}>
-                                                {m.material_name} ({m.total_qty} {m.unit} available)
+                                                {m.material_name} ({Math.max(Number(m.total_qty || 0) - Number(m.reserved_qty || 0), 0)} {m.unit} available)
                                             </option>
                                         ))}
                                     </select>

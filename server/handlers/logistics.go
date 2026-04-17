@@ -211,10 +211,19 @@ func getReadyOrders() ([]LogisticsReadyOrder, error) {
 		SELECT o.id, o.customer_name, COALESCE(o.order_type, 'OEM'), COALESCE(o.item_count, 1),
 		       COALESCE(o.total_amount, 0), o.completed_at, o.order_date
 		FROM orders o
+		LEFT JOIN qc_records q ON q.id = (
+			SELECT q2.id
+			FROM qc_records q2
+			WHERE CAST(q2.order_id AS UNSIGNED) = o.id
+			ORDER BY q2.inspected_at DESC, q2.id DESC
+			LIMIT 1
+		)
 		LEFT JOIN logistics_shipments ls ON ls.order_id = o.id
 			AND ls.status <> 'Cancelled'
-		WHERE o.status = 'Completed' AND ls.id IS NULL
-		ORDER BY COALESCE(o.completed_at, o.order_date) DESC, o.id DESC
+		WHERE o.status <> 'Cancelled'
+			AND q.result = 'Pass'
+			AND ls.id IS NULL
+		ORDER BY o.order_date DESC, o.id DESC
 	`)
 	if err != nil {
 		return nil, err
@@ -267,9 +276,18 @@ func getLogisticsSummary() (LogisticsSummary, error) {
 	if err := db.DB.QueryRow(`
 		SELECT COUNT(*)
 		FROM orders o
+		LEFT JOIN qc_records q ON q.id = (
+			SELECT q2.id
+			FROM qc_records q2
+			WHERE CAST(q2.order_id AS UNSIGNED) = o.id
+			ORDER BY q2.inspected_at DESC, q2.id DESC
+			LIMIT 1
+		)
 		LEFT JOIN logistics_shipments ls ON ls.order_id = o.id
 			AND ls.status <> 'Cancelled'
-		WHERE o.status = 'Completed' AND ls.id IS NULL
+		WHERE o.status <> 'Cancelled'
+			AND q.result = 'Pass'
+			AND ls.id IS NULL
 	`).Scan(&summary.ReadyForDispatch); err != nil {
 		return summary, err
 	}
@@ -307,7 +325,21 @@ func createShipment(w http.ResponseWriter, r *http.Request) {
 
 	var orderStatus string
 	var orderCustomer string
-	if err := db.DB.QueryRow(`SELECT status, customer_name FROM orders WHERE id = ?`, req.OrderID).Scan(&orderStatus, &orderCustomer); err != nil {
+	var latestQCResult sql.NullString
+	if err := db.DB.QueryRow(`
+		SELECT
+			o.status,
+			o.customer_name,
+			(
+				SELECT q.result
+				FROM qc_records q
+				WHERE CAST(q.order_id AS UNSIGNED) = o.id
+				ORDER BY q.inspected_at DESC, q.id DESC
+				LIMIT 1
+			) AS latest_qc_result
+		FROM orders o
+		WHERE o.id = ?
+	`, req.OrderID).Scan(&orderStatus, &orderCustomer, &latestQCResult); err != nil {
 		if err == sql.ErrNoRows {
 			jsonError(w, "Order not found", http.StatusNotFound)
 			return
@@ -315,8 +347,12 @@ func createShipment(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if orderStatus != "Completed" {
-		jsonError(w, "Only completed orders can be dispatched by logistics", http.StatusBadRequest)
+	if orderStatus == "Cancelled" {
+		jsonError(w, "Cancelled orders cannot be dispatched", http.StatusBadRequest)
+		return
+	}
+	if !latestQCResult.Valid || latestQCResult.String != "Pass" {
+		jsonError(w, "Only QC passed orders can be dispatched by logistics", http.StatusBadRequest)
 		return
 	}
 
@@ -478,8 +514,15 @@ func updateShipment(w http.ResponseWriter, r *http.Request) {
 		scheduledDispatchAt = parsed
 	}
 
+	tx, err := db.DB.Begin()
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
 	now := time.Now().UTC()
-	if _, err := db.DB.Exec(`
+	if _, err := tx.Exec(`
 		UPDATE logistics_shipments
 		SET status = ?,
 		    destination = ?,
@@ -494,6 +537,26 @@ func updateShipment(w http.ResponseWriter, r *http.Request) {
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`, nextStatus, req.Destination, req.VehicleCode, req.DriverName, req.DeliveryMethod, req.Priority, scheduledDispatchAt, nextStatus, now, nextStatus, now, req.Notes, req.ShipmentID); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if nextStatus == "Delivered" {
+		if _, err := tx.Exec(`
+			UPDATE orders o
+			JOIN logistics_shipments ls ON ls.order_id = o.id
+			SET
+				o.status = 'Completed',
+				o.started_at = CASE WHEN o.started_at IS NULL THEN CURRENT_TIMESTAMP ELSE o.started_at END,
+				o.completed_at = CASE WHEN o.completed_at IS NULL THEN CURRENT_TIMESTAMP ELSE o.completed_at END
+			WHERE ls.id = ? AND o.status <> 'Cancelled'
+		`, req.ShipmentID); err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

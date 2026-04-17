@@ -256,15 +256,14 @@ func createQCRecord(w http.ResponseWriter, r *http.Request) {
 	id, _ := result.LastInsertId()
 
 	var startedAt *time.Time
-	var completedAt *time.Time
 	orderStatus := ""
 	if req.Result == "Pass" {
 		updateResult, err := tx.Exec(`
 			UPDATE orders
 			SET
-				status = 'Completed',
+				status = 'In Progress',
 				started_at = CASE WHEN started_at IS NULL THEN CURRENT_TIMESTAMP ELSE started_at END,
-				completed_at = CURRENT_TIMESTAMP
+				completed_at = NULL
 			WHERE id = ?
 		`, orderID)
 		if err != nil {
@@ -282,11 +281,11 @@ func createQCRecord(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := tx.QueryRow(`SELECT completed_at FROM orders WHERE id = ?`, orderID).Scan(&completedAt); err != nil {
+		if err := tx.QueryRow(`SELECT started_at FROM orders WHERE id = ?`, orderID).Scan(&startedAt); err != nil {
 			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		orderStatus = "Completed"
+		orderStatus = "In Progress"
 	} else if req.Result == "Fail" {
 		updateResult, err := tx.Exec(`
 			UPDATE orders
@@ -334,12 +333,12 @@ func createQCRecord(w http.ResponseWriter, r *http.Request) {
 	if startedAt != nil {
 		response["started_at"] = startedAt
 	}
-	if completedAt != nil {
-		response["completed_at"] = completedAt
-		response["message"] = "QC record created and linked order marked as Completed"
-	}
 	if orderStatus == "In Progress" {
-		response["message"] = "QC record created and linked order moved to In Progress"
+		if req.Result == "Pass" {
+			response["message"] = "QC record created and linked order is ready for dispatch"
+		} else {
+			response["message"] = "QC record created and linked order moved to In Progress"
+		}
 	}
 
 	writeJSON(w, http.StatusCreated, response)
