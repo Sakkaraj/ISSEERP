@@ -156,14 +156,25 @@ async function getReservations(req, res) {
     const connection = await pool.getConnection();
     try {
       const [rows] = await connection.execute(`
-        SELECT id, material_id, order_id, reserved_qty, purpose, reserved_by, status, reserved_at
-        FROM material_reservations
+        SELECT
+          mr.id,
+          mr.material_id,
+          COALESCE(im.material_name, CONCAT('Material #', mr.material_id)) AS material_name,
+          mr.order_id,
+          mr.reserved_qty,
+          mr.purpose,
+          mr.reserved_by,
+          mr.status,
+          mr.reserved_at
+        FROM material_reservations mr
+        LEFT JOIN inventory_materials im ON im.id = mr.material_id
         ORDER BY reserved_at DESC
       `);
 
       const reservations = rows.map(row => ({
         id: row.id,
         material_id: row.material_id,
+        material_name: row.material_name,
         order_id: row.order_id == null ? '' : String(row.order_id),
         reserved_qty: row.reserved_qty,
         purpose: row.purpose,
