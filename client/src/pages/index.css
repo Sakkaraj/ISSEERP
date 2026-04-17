@@ -1,6 +1,20 @@
 @import "tailwindcss";
 
 @layer base {
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+    }
+
+    html,
+    body,
+    #root {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
     :root {
         --color-bg: hsl(0, 0%, 100%);
         --color-text: hsl(0, 0%, 10%);

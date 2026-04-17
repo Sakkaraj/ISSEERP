@@ -22,7 +22,7 @@ import RoleBasedRoute from "../components/RoleBasedRoute";
  */
 const ROLE_PERMISSIONS = {
   home: ['Admin', 'SaleStaff', 'QualityController', 'LogisticsStaff', 'Production'],
-  dashboard: ['Admin', 'SaleStaff'],
+    dashboard: ['Admin'],
   orderdetail: ['Admin', 'SaleStaff'],
   inventory: ['Admin', 'LogisticsStaff'],
     logistics: ['Admin', 'LogisticsStaff'],

@@ -191,7 +191,32 @@ async function ensureLogisticsTables(connection) {
 }
 
 async function ensureConstructionColumns(connection) {
+  try {
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS constructions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        design_mode ENUM('OEM', 'ODM', 'Bespoke') DEFAULT 'OEM',
+        furniture_type VARCHAR(100) NOT NULL,
+        primary_finish VARCHAR(100) NOT NULL,
+        secondary_finish VARCHAR(100),
+        reference_code VARCHAR(100),
+        customer_requirements TEXT,
+        extra_finish BOOLEAN DEFAULT FALSE,
+        special_finishes JSON,
+        image_url VARCHAR(500),
+        request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err) {
+    if (err.code !== 'ER_TABLE_EXISTS_ERROR') {
+      console.warn('Construction table creation warning:', err.message);
+    }
+  }
+
   const columnsToAdd = [
+    { name: 'design_mode', type: "ENUM('OEM', 'ODM', 'Bespoke') DEFAULT 'OEM'" },
+    { name: 'reference_code', type: 'VARCHAR(100)' },
+    { name: 'customer_requirements', type: 'TEXT' },
     { name: 'extra_finish', type: 'BOOLEAN DEFAULT FALSE' },
     { name: 'special_finishes', type: 'JSON' },
     { name: 'image_url', type: 'VARCHAR(500)' }

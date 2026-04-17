@@ -29,6 +29,9 @@
 
 	.finance-kpi-card {
 		@apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden transition-colors;
+		isolation: isolate;
+		contain: paint;
+		clip-path: inset(0 round 1rem);
 	}
 
 	.finance-kpi-card-income {
@@ -44,7 +47,9 @@
 	}
 
 	.finance-kpi-glow {
-		@apply absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl transition-all;
+		@apply absolute top-0 right-0 w-28 h-28 rounded-full blur-2xl opacity-80 transition-all;
+		transform: translate(20%, -20%);
+		pointer-events: none;
 	}
 
 	.finance-kpi-glow-income {

@@ -38,7 +38,10 @@ async function getOrders(req, res) {
                pp.progress_note,
                pp.updated_at,
                pp.submitted_at,
-               pp.updated_by
+             pp.updated_by,
+             q.result AS latest_qc_result,
+             q.inspected_at AS latest_qc_inspected_at,
+             q.inspector_name AS latest_qc_inspector
         FROM orders
         LEFT JOIN constructions c ON c.id = orders.construction_id
         LEFT JOIN production_assignments pa ON pa.order_id = orders.id
@@ -47,6 +50,13 @@ async function getOrders(req, res) {
           FROM production_progress p2
           WHERE p2.order_id = orders.id
           ORDER BY p2.updated_at DESC, p2.id DESC
+          LIMIT 1
+        )
+        LEFT JOIN qc_records q ON q.id = (
+          SELECT q2.id
+          FROM qc_records q2
+          WHERE CAST(q2.order_id AS UNSIGNED) = orders.id
+          ORDER BY q2.inspected_at DESC, q2.id DESC
           LIMIT 1
         )
         ORDER BY orders.order_date DESC
@@ -64,7 +74,10 @@ async function getOrders(req, res) {
                  pp.progress_note,
                  pp.updated_at,
                  pp.submitted_at,
-                 pp.updated_by
+               pp.updated_by,
+               q.result AS latest_qc_result,
+               q.inspected_at AS latest_qc_inspected_at,
+               q.inspector_name AS latest_qc_inspector
           FROM orders
           LEFT JOIN constructions c ON c.id = orders.construction_id
           LEFT JOIN production_assignments pa ON pa.order_id = orders.id
@@ -73,6 +86,13 @@ async function getOrders(req, res) {
             FROM production_progress p2
             WHERE p2.order_id = orders.id
             ORDER BY p2.updated_at DESC, p2.id DESC
+            LIMIT 1
+          )
+          LEFT JOIN qc_records q ON q.id = (
+            SELECT q2.id
+            FROM qc_records q2
+            WHERE CAST(q2.order_id AS UNSIGNED) = orders.id
+            ORDER BY q2.inspected_at DESC, q2.id DESC
             LIMIT 1
           )
           ORDER BY orders.order_date DESC
@@ -111,7 +131,10 @@ async function getOrderByID(req, res) {
                pp.progress_note,
                pp.updated_at,
                pp.submitted_at,
-               pp.updated_by
+             pp.updated_by,
+             q.result AS latest_qc_result,
+             q.inspected_at AS latest_qc_inspected_at,
+             q.inspector_name AS latest_qc_inspector
         FROM orders
         LEFT JOIN constructions c ON c.id = orders.construction_id
         LEFT JOIN production_assignments pa ON pa.order_id = orders.id
@@ -120,6 +143,13 @@ async function getOrderByID(req, res) {
           FROM production_progress p2
           WHERE p2.order_id = orders.id
           ORDER BY p2.updated_at DESC, p2.id DESC
+          LIMIT 1
+        )
+        LEFT JOIN qc_records q ON q.id = (
+          SELECT q2.id
+          FROM qc_records q2
+          WHERE CAST(q2.order_id AS UNSIGNED) = orders.id
+          ORDER BY q2.inspected_at DESC, q2.id DESC
           LIMIT 1
         )
         WHERE orders.id = ?
@@ -137,7 +167,10 @@ async function getOrderByID(req, res) {
                  pp.progress_note,
                  pp.updated_at,
                  pp.submitted_at,
-                 pp.updated_by
+               pp.updated_by,
+               q.result AS latest_qc_result,
+               q.inspected_at AS latest_qc_inspected_at,
+               q.inspector_name AS latest_qc_inspector
           FROM orders
           LEFT JOIN constructions c ON c.id = orders.construction_id
           LEFT JOIN production_assignments pa ON pa.order_id = orders.id
@@ -146,6 +179,13 @@ async function getOrderByID(req, res) {
             FROM production_progress p2
             WHERE p2.order_id = orders.id
             ORDER BY p2.updated_at DESC, p2.id DESC
+            LIMIT 1
+          )
+          LEFT JOIN qc_records q ON q.id = (
+            SELECT q2.id
+            FROM qc_records q2
+            WHERE CAST(q2.order_id AS UNSIGNED) = orders.id
+            ORDER BY q2.inspected_at DESC, q2.id DESC
             LIMIT 1
           )
           WHERE orders.id = ?
@@ -175,6 +215,10 @@ async function createOrder(req, res) {
     if (!customer_name || !order_type) {
       return jsonError(res, 'customer_name and order_type are required', 400);
     }
+    const validTypes = ['OEM', 'ODM', 'Bespoke'];
+    if (!validTypes.includes(order_type)) {
+      return jsonError(res, 'order_type must be OEM, ODM, or Bespoke', 400);
+    }
     if (construction_id <= 0) {
       return jsonError(res, 'construction_id is required', 400);
     }
@@ -187,14 +231,20 @@ async function createOrder(req, res) {
 
     const connection = await pool.getConnection();
     try {
-      // Check construction exists
+      // Check linked construction exists and matches the selected order type.
       const [constructions] = await connection.execute(
-        'SELECT COUNT(*) as count FROM constructions WHERE id = ?',
+        `SELECT id, COALESCE(design_mode, 'OEM') AS design_mode
+         FROM constructions
+         WHERE id = ?
+         LIMIT 1`,
         [construction_id]
       );
 
-      if (Number(constructions[0].count) === 0) {
+      if (constructions.length === 0) {
         return jsonError(res, 'Linked design specification not found', 400);
+      }
+      if (constructions[0].design_mode !== order_type) {
+        return jsonError(res, `Selected design spec is ${constructions[0].design_mode}. Please choose a ${order_type} design spec.`, 400);
       }
 
       const totalAmount = item_count * unit_price;
@@ -339,6 +389,9 @@ function parseOrderRow(row) {
     production_progress_note: row.progress_note || '',
     production_updated_at: row.updated_at || null,
     production_submitted_at: row.submitted_at || null,
-    production_updated_by: row.updated_by || null
+    production_updated_by: row.updated_by || null,
+    latest_qc_result: row.latest_qc_result || null,
+    latest_qc_inspected_at: row.latest_qc_inspected_at || null,
+    latest_qc_inspector: row.latest_qc_inspector || null
   };
 }

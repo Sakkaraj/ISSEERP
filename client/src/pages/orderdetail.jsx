@@ -128,6 +128,19 @@ export default function OrderDetail() {
 
     const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
+    const filteredConstructions = constructions.filter(
+        (spec) => (spec.design_mode || 'OEM') === form.orderType
+    );
+
+    useEffect(() => {
+        if (!form.constructionId) return;
+        const selectedId = Number(form.constructionId);
+        const isValidForType = filteredConstructions.some(spec => Number(spec.id) === selectedId);
+        if (!isValidForType) {
+            setForm(prev => ({ ...prev, constructionId: '' }));
+        }
+    }, [form.orderType, form.constructionId, filteredConstructions]);
+
     const itemCountValue = parseInt(form.itemCount, 10);
     const unitPriceValue = parseFloat(form.unitPrice);
     const calculatedTotal =
@@ -482,7 +495,11 @@ export default function OrderDetail() {
                                         { label: 'Order Received', date: new Date(selectedOrder.order_date).toLocaleDateString(), done: true },
                                         { label: 'Production Started', date: selectedOrder.started_at ? new Date(selectedOrder.started_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.started_at },
                                         { label: 'Production Progress Submitted', date: selectedOrder.production_submitted_at ? new Date(selectedOrder.production_submitted_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.production_submitted_at },
-                                        { label: 'QC Inspection', date: selectedOrder.completed_at ? new Date(selectedOrder.completed_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.completed_at },
+                                        {
+                                            label: `QC Inspection${selectedOrder.latest_qc_result ? ` (${selectedOrder.latest_qc_result})` : ''}`,
+                                            date: selectedOrder.latest_qc_inspected_at ? new Date(selectedOrder.latest_qc_inspected_at).toLocaleDateString() : 'Pending',
+                                            done: !!selectedOrder.latest_qc_inspected_at
+                                        },
                                         { label: 'Order Completed', date: selectedOrder.completed_at ? new Date(selectedOrder.completed_at).toLocaleDateString() : 'Pending', done: !!selectedOrder.completed_at },
                                     ].map(({ label, date, done }) => (
                                         <div key={label} className="flex items-start gap-3">
@@ -549,13 +566,18 @@ export default function OrderDetail() {
                                         onChange={handleFormChange}
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
                                     >
-                                        <option value="">Select design spec...</option>
-                                        {constructions.map(spec => (
+                                        <option value="">Select {form.orderType} design spec...</option>
+                                        {filteredConstructions.map(spec => (
                                             <option key={spec.id} value={spec.id}>
                                                 #{spec.id} - {spec.design_mode || 'OEM'} / {spec.furniture_type} ({spec.primary_finish})
                                             </option>
                                         ))}
                                     </select>
+                                    {filteredConstructions.length === 0 && (
+                                        <p className="text-xs text-text/50 mt-1">
+                                            No {form.orderType} design specs found. Create one in the Design Specs page first.
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
