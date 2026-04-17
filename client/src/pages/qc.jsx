@@ -42,6 +42,31 @@ export default function QCRegister() {
 
     const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
+    const handleOrderSelect = (orderIdRaw) => {
+        const orderId = String(orderIdRaw || '').trim();
+
+        if (!orderId) {
+            setForm(prev => ({ ...prev, orderId: '', batchId: '', productDescription: '' }));
+            setOrderLookupMsg('');
+            return;
+        }
+
+        const req = requirements.find((item) => String(item.order_id) === orderId);
+        if (!req) {
+            setForm(prev => ({ ...prev, orderId, batchId: prev.batchId, productDescription: prev.productDescription }));
+            setOrderLookupMsg('Selected order is not currently in the ready-to-inspect list.');
+            return;
+        }
+
+        setForm(prev => ({
+            ...prev,
+            orderId,
+            batchId: prev.batchId || `BCH-${String(req.order_id).padStart(4, '0')}A`,
+            productDescription: prev.productDescription || `${req.order_type} order for ${req.customer_name} (${req.item_count} items)`,
+        }));
+        setOrderLookupMsg(`Selected ready order #${req.order_id}: ${req.customer_name}`);
+    };
+
     const handleOrderLookup = async () => {
         const orderId = String(form.orderId).trim();
         if (!orderId) return;
@@ -68,6 +93,8 @@ export default function QCRegister() {
         e.preventDefault();
         setFormError('');
         if (!form.orderId.trim()) { setFormError('Order ID is required.'); return; }
+        const isReadyOrder = requirements.some((item) => String(item.order_id) === String(form.orderId).trim());
+        if (!isReadyOrder) { setFormError('Please select an order from the ready-to-inspect list.'); return; }
         if (!form.batchId.trim()) { setFormError('Batch ID is required.'); return; }
         if (!form.productDescription.trim()) { setFormError('Product description is required.'); return; }
         if (!form.aqlLevel) { setFormError('Please select an AQL level.'); return; }
@@ -278,14 +305,21 @@ export default function QCRegister() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-sm font-medium text-text/70 mb-1 block">Order ID *</label>
-                                        <div className="flex gap-2">
-                                            <input id="qc-order-id" type="number" name="orderId" value={form.orderId} onChange={handleFormChange} onBlur={handleOrderLookup} placeholder="e.g. 1005"
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                                            <button type="button" onClick={handleOrderLookup}
-                                                className="px-3 py-2.5 bg-white/10 border border-white/15 rounded-xl text-sm font-semibold text-text hover:bg-white/15 transition-colors whitespace-nowrap">
-                                                Auto Fill
-                                            </button>
-                                        </div>
+                                        <select
+                                            id="qc-order-id"
+                                            name="orderId"
+                                            value={form.orderId}
+                                            onChange={(e) => handleOrderSelect(e.target.value)}
+                                            disabled={requirementsLoading}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                                        >
+                                            <option value="">{requirementsLoading ? 'Loading ready orders...' : 'Select ready order...'}</option>
+                                            {requirements.map((req) => (
+                                                <option key={req.order_id} value={req.order_id}>
+                                                    #{req.order_id} - {req.customer_name}
+                                                </option>
+                                            ))}
+                                        </select>
                                         {orderLookupMsg && <p className="text-xs text-text/60 mt-1">{orderLookupMsg}</p>}
                                     </div>
                                     <div>

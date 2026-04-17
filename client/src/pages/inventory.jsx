@@ -46,7 +46,75 @@ export default function Inventory() {
     const [addSuccessMsg, setAddSuccessMsg] = useState('');
     const [restockSuccessMsg, setRestockSuccessMsg] = useState('');
 
-    const handleFormChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const normalizeLabel = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const eligibleOrders = (Array.isArray(orders) ? orders : []).filter((order) => {
+        const status = String(order?.status || '');
+        return status !== 'Completed' && status !== 'Cancelled';
+    });
+
+    const selectedOrder = eligibleOrders.find((order) => String(order.id) === String(form.orderId));
+
+    const selectedOrderFinishLabels = [
+        selectedOrder?.primary_finish,
+        selectedOrder?.secondary_finish,
+    ].filter(Boolean);
+
+    const suggestedMaterials = selectedOrderFinishLabels.length === 0
+        ? []
+        : materials.filter((material) => {
+            const materialName = normalizeLabel(material.material_name);
+            return selectedOrderFinishLabels.some((finish) => {
+                const normalizedFinish = normalizeLabel(finish);
+                return normalizedFinish.includes(materialName) || materialName.includes(normalizedFinish);
+            });
+        });
+
+    const materialOptions = selectedOrder
+        ? (suggestedMaterials.length > 0 ? suggestedMaterials : materials)
+        : [];
+
+    const openReserveModal = () => {
+        setFormError('');
+        setSuccessMsg('');
+        setShowModal(true);
+    };
+
+    const closeReserveModal = () => {
+        setShowModal(false);
+        setFormError('');
+        setSuccessMsg('');
+    };
+
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
+        setForm((prev) => {
+            if (name !== 'orderId') {
+                return { ...prev, [name]: value };
+            }
+
+            const nextOrder = eligibleOrders.find((order) => String(order.id) === String(value));
+            const nextFinishLabels = [nextOrder?.primary_finish, nextOrder?.secondary_finish].filter(Boolean);
+            const nextSuggested = nextFinishLabels.length === 0
+                ? []
+                : materials.filter((material) => {
+                    const materialName = normalizeLabel(material.material_name);
+                    return nextFinishLabels.some((finish) => {
+                        const normalizedFinish = normalizeLabel(finish);
+                        return normalizedFinish.includes(materialName) || materialName.includes(normalizedFinish);
+                    });
+                });
+
+            const nextMaterialOptions = nextOrder ? (nextSuggested.length > 0 ? nextSuggested : materials) : [];
+            const selectedMaterialStillValid = nextMaterialOptions.some((material) => String(material.id) === String(prev.materialId));
+
+            return {
+                ...prev,
+                orderId: value,
+                materialId: selectedMaterialStillValid ? prev.materialId : (nextMaterialOptions.length === 1 ? String(nextMaterialOptions[0].id) : ''),
+            };
+        });
+    };
     const handleAddFormChange = (e) => {
         const { name, type, checked, value } = e.target;
         setAddForm(prev => ({
@@ -65,6 +133,8 @@ export default function Inventory() {
         if (!mat) { setFormError('Please select a material.'); return; }
         if (!qty || qty <= 0) { setFormError('Enter a valid quantity.'); return; }
         if (!form.orderId.trim()) { setFormError('Order ID is required.'); return; }
+        const orderStillEligible = eligibleOrders.some((order) => String(order.id) === String(form.orderId).trim());
+        if (!orderStillEligible) { setFormError('Please select an active order (completed/cancelled orders cannot reserve materials).'); return; }
         if (!form.reservedBy.trim()) { setFormError('Reserved By is required.'); return; }
 
         setSubmitting(true);
@@ -85,7 +155,7 @@ export default function Inventory() {
             setSuccessMsg(`Reserved ${qty} ${mat.unit} of ${mat.material_name} for order #${form.orderId}.`);
             setForm({ materialId: '', quantity: '', orderId: '', purpose: '', reservedBy: '' });
             await Promise.all([refetchMats(), refetchRes()]);
-            setTimeout(() => { setShowModal(false); setSuccessMsg(''); }, 2000);
+            setTimeout(() => { setSuccessMsg(''); }, 2000);
         } catch (err) {
             setFormError(err.message);
         } finally {
@@ -190,7 +260,7 @@ export default function Inventory() {
                     <h1 className="text-3xl font-bold text-text tracking-tight">Inventory & Material Reservation</h1>
                     <p className="text-text/60 mt-1">Monitor raw material stock and reserve materials for bespoke production orders.</p>
                 </div>
-                <button id="btn-reserve-material" onClick={() => setShowModal(true)}
+                <button id="btn-reserve-material" onClick={openReserveModal}
                     className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-semibold shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 transition-all duration-200">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -333,9 +403,9 @@ export default function Inventory() {
 
             {/* Reserve Modal */}
             {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={closeReserveModal}>
                     <div className="bg-background border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-8 relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-text/40 hover:text-text transition-colors">
+                        <button onClick={closeReserveModal} className="absolute top-4 right-4 text-text/40 hover:text-text transition-colors">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                         <h2 className="text-xl font-bold text-text mb-1">Reserve Material</h2>
@@ -347,16 +417,45 @@ export default function Inventory() {
                             <form onSubmit={handleReserve} className="space-y-4">
                                 {formError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3">{formError}</p>}
                                 <div>
-                                    <label className="text-sm font-medium text-text/70 mb-1 block">Material *</label>
-                                    <select id="inv-material" name="materialId" value={form.materialId} onChange={handleFormChange}
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Order ID *</label>
+                                    <select id="inv-order-id" name="orderId" value={form.orderId} onChange={handleFormChange}
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                        <option value="">Select material…</option>
-                                        {materials.map(m => (
+                                        <option value="">Select order...</option>
+                                        {eligibleOrders.map(order => (
+                                            <option key={order.id} value={order.id}>
+                                                #{order.id} - {order.customer_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-text/50 mt-1">Only active orders are selectable. Completed and cancelled orders are hidden.</p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-text/70 mb-1 block">Material *</label>
+                                    <select
+                                        id="inv-material"
+                                        name="materialId"
+                                        value={form.materialId}
+                                        onChange={handleFormChange}
+                                        disabled={!selectedOrder}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                                    >
+                                        <option value="">{selectedOrder ? 'Select material…' : 'Select order first...'}</option>
+                                        {materialOptions.map(m => (
                                             <option key={m.id} value={m.id}>
                                                 {m.material_name} ({Math.max(Number(m.total_qty || 0) - Number(m.reserved_qty || 0), 0)} {m.unit} available)
                                             </option>
                                         ))}
                                     </select>
+                                    {selectedOrder && selectedOrderFinishLabels.length > 0 && suggestedMaterials.length > 0 && (
+                                        <p className="text-xs text-text/50 mt-1">
+                                            Suggested from design specs: {selectedOrderFinishLabels.join(', ')}
+                                        </p>
+                                    )}
+                                    {selectedOrder && selectedOrderFinishLabels.length > 0 && suggestedMaterials.length === 0 && (
+                                        <p className="text-xs text-yellow-400 mt-1">
+                                            No exact material match from design specs ({selectedOrderFinishLabels.join(', ')}). Showing all materials.
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -364,18 +463,7 @@ export default function Inventory() {
                                         <input id="inv-quantity" type="number" name="quantity" value={form.quantity} onChange={handleFormChange} min="1" placeholder="e.g. 10"
                                             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text placeholder:text-text/30 focus:outline-none focus:ring-2 focus:ring-primary/50" />
                                     </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-text/70 mb-1 block">Order ID *</label>
-                                        <select id="inv-order-id" name="orderId" value={form.orderId} onChange={handleFormChange}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                            <option value="">Select order...</option>
-                                            {(Array.isArray(orders) ? orders : []).map(order => (
-                                                <option key={order.id} value={order.id}>
-                                                    #{order.id} - {order.customer_name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    <div></div>
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-text/70 mb-1 block">Purpose / Notes</label>

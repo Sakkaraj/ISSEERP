@@ -7,6 +7,8 @@ const DEFAULT_META = {
 	delivery_methods: ['Internal Vehicle', 'Warehouse Pickup', 'Internal Transfer'],
 };
 
+const THAILAND_TIMEZONE = 'Asia/Bangkok';
+
 function useLogisticsDashboard() {
 	const [data, setData] = useState({ meta: DEFAULT_META, summary: {}, ready_orders: [], shipments: [] });
 	const [loading, setLoading] = useState(true);
@@ -41,15 +43,32 @@ function useLogisticsDashboard() {
 
 function formatDateTime(value) {
 	if (!value) return '—';
-	return new Date(value).toLocaleString();
+	return new Intl.DateTimeFormat('en-GB', {
+		timeZone: THAILAND_TIMEZONE,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		hour12: false,
+	}).format(new Date(value));
 }
 
 function formatDateTimeInput(value) {
 	if (!value) return '';
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return '';
-	const pad = (number) => String(number).padStart(2, '0');
-	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+	const parts = new Intl.DateTimeFormat('en-CA', {
+		timeZone: THAILAND_TIMEZONE,
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		hour12: false,
+	}).formatToParts(date);
+	const partMap = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+	return `${partMap.year}-${partMap.month}-${partMap.day}T${partMap.hour}:${partMap.minute}`;
 }
 
 function formatCurrency(value) {
@@ -443,6 +462,7 @@ export default function Logistics() {
 								<div>
 									<label className="text-sm font-medium text-text/70 mb-1 block">Scheduled Dispatch</label>
 									<input type="datetime-local" name="scheduledDispatchAt" value={createForm.scheduledDispatchAt} onChange={handleCreateChange} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+									<p className="text-xs text-text/50 mt-1">Thailand time (GMT+7). Leave empty to keep manual dispatch only.</p>
 								</div>
 								<div>
 									<label className="text-sm font-medium text-text/70 mb-1 block">Notes</label>
@@ -513,6 +533,7 @@ export default function Logistics() {
 									<div>
 										<label className="text-sm font-medium text-text/70 mb-1 block">Scheduled Dispatch</label>
 										<input type="datetime-local" name="scheduledDispatchAt" value={editForm.scheduledDispatchAt} onChange={handleEditChange} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text focus:outline-none focus:ring-2 focus:ring-cyan-500/50" />
+										<p className="text-xs text-text/50 mt-1">Thailand time (GMT+7). Clear this field and save to disable auto-dispatch.</p>
 									</div>
 								</div>
 								<div>

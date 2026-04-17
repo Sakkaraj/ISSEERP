@@ -15,7 +15,7 @@ import { productionOrdersHandler, productionProgressHandler, productionAssignmen
 import { qcHandler, qcRequirementsHandler } from './handlers/qc.js';
 import { constructionsHandler } from './handlers/constructions.js';
 import { dashboardSummaryHandler, financeHandler } from './handlers/dashboard.js';
-import { logisticsHandler } from './handlers/logistics.js';
+import { logisticsHandler, autoDispatchScheduledShipments } from './handlers/logistics.js';
 
 dotenv.config();
 
@@ -37,6 +37,7 @@ async function ensureDBReady() {
 const app = express();
 const PORT = process.env.PORT || 8080;
 const FRONTEND_DEV_URL = process.env.FRONTEND_DEV_URL || '';
+let autoDispatchTimer = null;
 
 // Middleware
 app.use(cors());
@@ -132,6 +133,20 @@ app.use((err, req, res, next) => {
 async function startServer() {
   try {
     await ensureDBReady();
+
+    if (!autoDispatchTimer) {
+      autoDispatchTimer = setInterval(async () => {
+        try {
+          const affected = await autoDispatchScheduledShipments();
+          if (affected > 0) {
+            console.log(`Auto-dispatched ${affected} shipment(s) by scheduled time`);
+          }
+        } catch (error) {
+          console.error('Auto-dispatch worker error:', error.message);
+        }
+      }, 30 * 1000);
+    }
+
     app.listen(PORT, () => {
       console.log(`Server is running on :${PORT}`);
     });

@@ -153,23 +153,51 @@ export async function reservationsHandler(req, res) {
 
 async function getReservations(req, res) {
   try {
+    const orderIdFilterRaw = req.query?.order_id;
+    const hasOrderFilter = orderIdFilterRaw !== undefined && orderIdFilterRaw !== null && String(orderIdFilterRaw).trim() !== '';
+    const orderIdFilter = hasOrderFilter ? Number(orderIdFilterRaw) : null;
+
+    if (hasOrderFilter && (!Number.isInteger(orderIdFilter) || orderIdFilter <= 0)) {
+      return jsonError(res, 'order_id must be a valid numeric order id', 400);
+    }
+
     const connection = await pool.getConnection();
     try {
-      const [rows] = await connection.execute(`
-        SELECT
-          mr.id,
-          mr.material_id,
-          COALESCE(im.material_name, CONCAT('Material #', mr.material_id)) AS material_name,
-          mr.order_id,
-          mr.reserved_qty,
-          mr.purpose,
-          mr.reserved_by,
-          mr.status,
-          mr.reserved_at
-        FROM material_reservations mr
-        LEFT JOIN inventory_materials im ON im.id = mr.material_id
-        ORDER BY reserved_at DESC
-      `);
+      let rows;
+      if (hasOrderFilter) {
+        [rows] = await connection.execute(`
+          SELECT
+            mr.id,
+            mr.material_id,
+            COALESCE(im.material_name, CONCAT('Material #', mr.material_id)) AS material_name,
+            mr.order_id,
+            mr.reserved_qty,
+            mr.purpose,
+            mr.reserved_by,
+            mr.status,
+            mr.reserved_at
+          FROM material_reservations mr
+          LEFT JOIN inventory_materials im ON im.id = mr.material_id
+          WHERE CAST(mr.order_id AS UNSIGNED) = ?
+          ORDER BY reserved_at DESC
+        `, [orderIdFilter]);
+      } else {
+        [rows] = await connection.execute(`
+          SELECT
+            mr.id,
+            mr.material_id,
+            COALESCE(im.material_name, CONCAT('Material #', mr.material_id)) AS material_name,
+            mr.order_id,
+            mr.reserved_qty,
+            mr.purpose,
+            mr.reserved_by,
+            mr.status,
+            mr.reserved_at
+          FROM material_reservations mr
+          LEFT JOIN inventory_materials im ON im.id = mr.material_id
+          ORDER BY reserved_at DESC
+        `);
+      }
 
       const reservations = rows.map(row => ({
         id: row.id,

@@ -4,6 +4,45 @@ import { writeJSON, jsonError } from '../utils/response.js';
 const logisticsStatuses = ['Planned', 'Packed', 'Dispatched', 'Delivered', 'Returned', 'Cancelled'];
 const logisticsPriorities = ['Low', 'Normal', 'High', 'Urgent'];
 const logisticsDeliveryMethods = ['Internal Vehicle', 'Warehouse Pickup', 'Internal Transfer'];
+const THAILAND_UTC_OFFSET_HOURS = 7;
+
+function formatUtcDateTime(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+}
+
+function parseScheduledDispatchBangkok(value) {
+  if (value === undefined || value === null) {
+    return { hasValue: false, parsed: null };
+  }
+
+  const raw = String(value).trim();
+  if (raw === '') {
+    return { hasValue: true, parsed: null };
+  }
+
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) {
+    throw new Error('scheduled_dispatch_at must be in YYYY-MM-DDTHH:mm format');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6] || '0');
+
+  // Convert Bangkok local time (UTC+7) into UTC for TIMESTAMP storage.
+  const utcMs = Date.UTC(year, month - 1, day, hour - THAILAND_UTC_OFFSET_HOURS, minute, second, 0);
+  const utcDate = new Date(utcMs);
+  if (Number.isNaN(utcDate.getTime())) {
+    throw new Error('scheduled_dispatch_at is invalid');
+  }
+
+  // Return an explicit UTC datetime string to avoid driver/local timezone drift.
+  return { hasValue: true, parsed: formatUtcDateTime(utcDate) };
+}
 
 export async function logisticsHandler(req, res) {
   try {
@@ -26,6 +65,18 @@ async function getLogisticsDashboard(req, res) {
   try {
     const connection = await pool.getConnection();
     try {
+      // Apply auto-dispatch on every dashboard read so serverless/runtime restarts still keep statuses fresh.
+      await connection.execute(`
+        UPDATE logistics_shipments
+        SET
+          status = 'Dispatched',
+          dispatched_at = COALESCE(dispatched_at, UTC_TIMESTAMP()),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE status IN ('Planned', 'Packed')
+          AND scheduled_dispatch_at IS NOT NULL
+          AND scheduled_dispatch_at <= UTC_TIMESTAMP()
+      `);
+
       // Get shipments
       const [shipmentRows] = await connection.execute(`
         SELECT ls.id, ls.order_id, ls.shipment_code, o.customer_name, COALESCE(o.order_type, 'OEM') AS order_type,
@@ -135,6 +186,14 @@ async function createShipment(req, res) {
       return jsonError(res, 'Invalid priority', 400);
     }
 
+    let scheduledDispatchAt = null;
+    try {
+      const parsed = parseScheduledDispatchBangkok(scheduled_dispatch_at);
+      scheduledDispatchAt = parsed.parsed;
+    } catch (error) {
+      return jsonError(res, error.message, 400);
+    }
+
     const connection = await pool.getConnection();
     try {
       // Check if shipment already exists
@@ -188,7 +247,7 @@ async function createShipment(req, res) {
         vehicle_code,
         driver_name,
         priority,
-        scheduled_dispatch_at || null,
+        scheduledDispatchAt,
         notes || '',
         created_by
       ]);
@@ -225,6 +284,13 @@ async function updateShipment(req, res) {
       return jsonError(res, 'Invalid priority', 400);
     }
 
+    let parsedSchedule = { hasValue: false, parsed: null };
+    try {
+      parsedSchedule = parseScheduledDispatchBangkok(scheduled_dispatch_at);
+    } catch (error) {
+      return jsonError(res, error.message, 400);
+    }
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -256,9 +322,9 @@ async function updateShipment(req, res) {
         updateFields.push('priority = ?');
         updateValues.push(priority);
       }
-      if (scheduled_dispatch_at) {
+      if (parsedSchedule.hasValue) {
         updateFields.push('scheduled_dispatch_at = ?');
-        updateValues.push(scheduled_dispatch_at);
+        updateValues.push(parsedSchedule.parsed);
       }
       if (notes !== undefined) {
         updateFields.push('notes = ?');
@@ -317,5 +383,32 @@ async function updateShipment(req, res) {
   } catch (error) {
     console.error('Update shipment error:', error);
     return jsonError(res, error.message, 500);
+  }
+}
+
+export async function autoDispatchScheduledShipments() {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    try {
+      const [result] = await connection.execute(`
+        UPDATE logistics_shipments
+        SET
+          status = 'Dispatched',
+          dispatched_at = COALESCE(dispatched_at, UTC_TIMESTAMP()),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE status IN ('Planned', 'Packed')
+          AND scheduled_dispatch_at IS NOT NULL
+          AND scheduled_dispatch_at <= UTC_TIMESTAMP()
+      `);
+
+      await connection.commit();
+      return Number(result.affectedRows || 0);
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    }
+  } finally {
+    connection.release();
   }
 }
