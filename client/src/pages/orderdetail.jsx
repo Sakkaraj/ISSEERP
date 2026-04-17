@@ -35,6 +35,10 @@ export default function OrderDetail() {
     const [statusSaving, setStatusSaving] = useState(false);
     const [statusError, setStatusError] = useState('');
     const [statusMsg, setStatusMsg] = useState('');
+    const [assignmentDraft, setAssignmentDraft] = useState('');
+    const [assignmentSaving, setAssignmentSaving] = useState(false);
+    const [assignmentError, setAssignmentError] = useState('');
+    const [assignmentMsg, setAssignmentMsg] = useState('');
     const [orderMaterials, setOrderMaterials] = useState([]);
     const [materialsLoading, setMaterialsLoading] = useState(false);
     const [materialsError, setMaterialsError] = useState('');
@@ -87,9 +91,12 @@ export default function OrderDetail() {
     useEffect(() => {
         setStatusError('');
         setStatusMsg('');
+        setAssignmentError('');
+        setAssignmentMsg('');
         if (selectedOrder?.status) {
             setDraftStatus(selectedOrder.status);
         }
+        setAssignmentDraft(selectedOrder?.production_assigned_to || '');
     }, [selectedOrder?.id]);
 
     useEffect(() => {
@@ -238,6 +245,51 @@ export default function OrderDetail() {
             setStatusError(err.message);
         } finally {
             setStatusSaving(false);
+        }
+    };
+
+    const handleAssignProduction = async () => {
+        if (!selectedOrder) return;
+
+        const assignee = assignmentDraft.trim();
+        if (!assignee) {
+            setAssignmentError('Please enter a production username to assign.');
+            setAssignmentMsg('');
+            return;
+        }
+
+        setAssignmentSaving(true);
+        setAssignmentError('');
+        setAssignmentMsg('');
+
+        try {
+            const res = await fetch('/api/production/assignments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: selectedOrder.id,
+                    assignee,
+                }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to assign production staff');
+
+            setOrders(prev => prev.map(order =>
+                order.id === selectedOrder.id
+                    ? { ...order, production_assigned_to: data.assigned_to || assignee }
+                    : order
+            ));
+            setSelectedOrder(prev => prev
+                ? { ...prev, production_assigned_to: data.assigned_to || assignee }
+                : prev
+            );
+            setAssignmentDraft(data.assigned_to || assignee);
+            setAssignmentMsg('Production staff assigned successfully.');
+        } catch (err) {
+            setAssignmentError(err.message || 'Failed to assign production staff');
+        } finally {
+            setAssignmentSaving(false);
         }
     };
 
@@ -430,6 +482,29 @@ export default function OrderDetail() {
                                 {statusMsg && <p className="text-xs text-green-400">{statusMsg}</p>}
                             </div>
 
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+                                <p className="text-xs font-bold text-text/40 uppercase tracking-widest">Assign Production Staff</p>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="text"
+                                        value={assignmentDraft}
+                                        onChange={(e) => setAssignmentDraft(e.target.value)}
+                                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-text placeholder:text-text/35 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        placeholder="Enter production username"
+                                    />
+                                    <button
+                                        onClick={handleAssignProduction}
+                                        disabled={assignmentSaving || assignmentDraft.trim() === (selectedOrder.production_assigned_to || '').trim()}
+                                        className="px-4 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60"
+                                    >
+                                        {assignmentSaving ? 'Assigning...' : 'Assign'}
+                                    </button>
+                                </div>
+                                <p className="text-xs text-text/50">Assign this order by production username so the responsible person can track and submit progress.</p>
+                                {assignmentError && <p className="text-xs text-red-400">{assignmentError}</p>}
+                                {assignmentMsg && <p className="text-xs text-green-400">{assignmentMsg}</p>}
+                            </div>
+
                             {/* Key Info */}
                             <div className="bg-white/5 rounded-2xl border border-white/10 divide-y divide-white/5">
                                 {[
@@ -443,7 +518,7 @@ export default function OrderDetail() {
                                     { label: 'Order Date', value: new Date(selectedOrder.order_date).toLocaleString() },
                                     { label: 'Item Count', value: `${selectedOrder.item_count} unit${selectedOrder.item_count !== 1 ? 's' : ''}` },
                                         { label: 'Unit Price', value: `$${Number(selectedOrder.unit_price || 0).toFixed(2)}` },
-                                    { label: 'Production Staff', value: selectedOrder.production_assigned_to || 'Not assigned' },
+                                    { label: 'Production Staff', value: selectedOrder.production_assigned_to || 'Unassigned' },
                                     { label: 'Production Progress', value: `${selectedOrder.production_progress ?? 0}%` },
                                     { label: 'Production Last Update', value: selectedOrder.production_updated_at ? new Date(selectedOrder.production_updated_at).toLocaleString() : 'No update yet' },
                                     { label: 'Total Amount', value: `$${Number(selectedOrder.total_amount).toFixed(2)}`, bold: true },

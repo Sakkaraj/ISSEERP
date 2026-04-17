@@ -11,7 +11,7 @@ import { authenticateToken } from './middleware/auth.js';
 import { loginHandler, createUserHandler } from './handlers/auth.js';
 import { ordersHandler } from './handlers/orders.js';
 import { materialsHandler, reservationsHandler } from './handlers/inventory.js';
-import { productionOrdersHandler, productionProgressHandler } from './handlers/production.js';
+import { productionOrdersHandler, productionProgressHandler, productionAssignmentsHandler } from './handlers/production.js';
 import { qcHandler, qcRequirementsHandler } from './handlers/qc.js';
 import { constructionsHandler } from './handlers/constructions.js';
 import { dashboardSummaryHandler, financeHandler } from './handlers/dashboard.js';
@@ -80,6 +80,7 @@ app.get('/api/finance', financeHandler);
 // Production
 app.get('/api/production/orders', productionOrdersHandler);
 app.post('/api/production/progress', productionProgressHandler);
+app.post('/api/production/assignments', productionAssignmentsHandler);
 
 // Construct — Design Specifications
 app.get('/api/constructions', constructionsHandler);

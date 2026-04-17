@@ -40,6 +40,11 @@ type ProductionProgressRequest struct {
 	Submit          bool     `json:"submit"`
 }
 
+type ProductionAssignmentRequest struct {
+	OrderID  int    `json:"order_id"`
+	Assignee string `json:"assignee"`
+}
+
 func stripChecklistSummary(note string) string {
 	note = strings.TrimSpace(note)
 	for strings.HasPrefix(strings.ToLower(note), "checklist ") {
@@ -293,6 +298,82 @@ func ProductionProgressHandler(w http.ResponseWriter, r *http.Request) {
 		"started_at":          startedAt,
 		"completed_at":        completedAt,
 		"progress_updated_by": req.Assignee,
+	})
+}
+
+func ProductionAssignmentsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ProductionAssignmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	req.Assignee = strings.TrimSpace(req.Assignee)
+
+	if req.OrderID <= 0 {
+		jsonError(w, "order_id is required", http.StatusBadRequest)
+		return
+	}
+	if req.Assignee == "" {
+		jsonError(w, "assignee is required", http.StatusBadRequest)
+		return
+	}
+
+	tx, err := db.DB.Begin()
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	var orderExists int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM orders WHERE id = ?`, req.OrderID).Scan(&orderExists); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if orderExists == 0 {
+		jsonError(w, "Order not found", http.StatusNotFound)
+		return
+	}
+
+	var assignmentID int
+	err = tx.QueryRow(`SELECT id FROM production_assignments WHERE order_id = ?`, req.OrderID).Scan(&assignmentID)
+	if err == sql.ErrNoRows {
+		if _, err := tx.Exec(`
+			INSERT INTO production_assignments (order_id, assigned_to, assigned_at)
+			VALUES (?, ?, CURRENT_TIMESTAMP)
+		`, req.OrderID, req.Assignee); err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	} else {
+		if _, err := tx.Exec(`
+			UPDATE production_assignments
+			SET assigned_to = ?, assigned_at = CURRENT_TIMESTAMP
+			WHERE order_id = ?
+		`, req.Assignee, req.OrderID); err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message":     "Production assignment saved",
+		"order_id":    req.OrderID,
+		"assigned_to": req.Assignee,
 	})
 }
 

@@ -282,3 +282,81 @@ export async function productionProgressHandler(req, res) {
     return jsonError(res, error.message, 500);
   }
 }
+
+export async function productionAssignmentsHandler(req, res) {
+  try {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    const { order_id, assignee } = req.body || {};
+    const normalizedAssignee = String(assignee || '').trim();
+
+    if (!order_id || Number(order_id) <= 0) {
+      return jsonError(res, 'order_id is required', 400);
+    }
+    if (!normalizedAssignee) {
+      return jsonError(res, 'assignee is required', 400);
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      try {
+        const [orderRows] = await connection.execute(
+          'SELECT id FROM orders WHERE id = ? LIMIT 1',
+          [order_id]
+        );
+        if (orderRows.length === 0) {
+          await connection.rollback();
+          return jsonError(res, 'Order not found', 404);
+        }
+
+        const [userRows] = await connection.execute(
+          "SELECT username FROM users WHERE username = ? AND role = 'Production' LIMIT 1",
+          [normalizedAssignee]
+        );
+        if (userRows.length === 0) {
+          await connection.rollback();
+          return jsonError(res, 'Assignee must be an existing Production user', 400);
+        }
+
+        const [assignmentRows] = await connection.execute(
+          'SELECT id FROM production_assignments WHERE order_id = ? LIMIT 1',
+          [order_id]
+        );
+
+        if (assignmentRows.length === 0) {
+          await connection.execute(
+            `INSERT INTO production_assignments (order_id, assigned_to, assigned_at)
+             VALUES (?, ?, CURRENT_TIMESTAMP)`,
+            [order_id, normalizedAssignee]
+          );
+        } else {
+          await connection.execute(
+            `UPDATE production_assignments
+             SET assigned_to = ?, assigned_at = CURRENT_TIMESTAMP
+             WHERE order_id = ?`,
+            [normalizedAssignee, order_id]
+          );
+        }
+
+        await connection.commit();
+        return writeJSON(res, 200, {
+          message: 'Production assignment saved',
+          order_id: Number(order_id),
+          assigned_to: normalizedAssignee
+        });
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      }
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Production assignments handler error:', error);
+    return jsonError(res, error.message, 500);
+  }
+}

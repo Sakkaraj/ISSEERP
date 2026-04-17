@@ -51,6 +51,7 @@ func setupRouter() *http.ServeMux {
 	mux.HandleFunc("/api/finance", handlers.FinanceHandler)
 	mux.HandleFunc("/api/production/orders", handlers.ProductionOrdersHandler)
 	mux.HandleFunc("/api/production/progress", handlers.ProductionProgressHandler)
+	mux.HandleFunc("/api/production/assignments", handlers.ProductionAssignmentsHandler)
 
 	// Construct — Design Specifications
 	mux.HandleFunc("/api/constructions", handlers.ConstructionsHandler)
